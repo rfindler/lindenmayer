@@ -1,7 +1,9 @@
 #lang racket
-(require (for-syntax syntax/parse))
-(provide (rename-out [module-begin #%module-begin]))
-
+(require (for-syntax syntax/parse
+                     syntax/id-table
+                     racket/dict))
+(provide (all-from-out racket)
+         l-system)
 
 #|
 ;; an exp is either:
@@ -14,12 +16,13 @@
 
 (define-for-syntax non-terminals (make-hash))
 
-(define-syntax (non-terminal stx)
+(define-syntax (register-non-terminals stx)
   (syntax-parse stx
-    [(_ name)
-     (hash-set! non-terminals (hash-count non-terminals)
-                (syntax-local-introduce #'name))
-     #'(define name (container 'name))]))
+    [(_ name ...)
+     (for ([name (in-list (syntax->list #'(name ...)))])
+       (hash-set! non-terminals (hash-count non-terminals)
+                  (syntax-local-introduce name)))
+     #'(void)]))
 (define-syntax (rule stx)
   (syntax-parse stx
     [(_ lhs rhs ...)
@@ -38,15 +41,32 @@
   #`(list #,@(for/list ([i (in-range (hash-count non-terminals))])
                (hash-ref non-terminals i))))
 
-(define-syntax (module-begin stx)
+(define-syntax (l-system stx)
   (syntax-parse stx
-    [(_ (C ...) (A -> B ...) ...)
-     #'(#%plain-module-begin
-         (non-terminal A) ...
-         (define rules (list (rule A B ...) ...))
-         (axiom root C ...)
-         (define non-terminals-box (box (get-non-terminals)))
-         (run-it root rules non-terminals-box))]))
+    [(_ #:convert-start start
+        #:convert-finish finish
+        #:iterations iterations
+        (C ...) (A -> B ...) ...)
+     (with-syntax ([(T ...) (find-terminals #'(B ... ...) #'(A ...))])
+       #'(let ([A (container A)] ...
+               [T (container T)] ...)
+           (register-non-terminals A ...)
+           (define rules (list (rule A B ...) ...))
+           (axiom root C ...)
+           (define non-terminals-box (box (get-non-terminals)))
+           (run-it root rules non-terminals-box
+                   start finish iterations)))]))
+
+(define-for-syntax (find-terminals candidates non-terminals)
+  (define table (make-free-id-table))
+  (for ([non-terminal (in-list (syntax->list non-terminals))])
+    (free-id-table-set! table non-terminal #t))
+  (define result (make-free-id-table))
+  (for ([candidate (in-list (syntax->list candidates))])
+    (unless (free-id-table-ref table candidate #f)
+      (free-id-table-set! result candidate #t)))
+  (for/list ([(id _) (in-dict result)])
+    id))
 
 (define (rewrite rules non-terminals-box)
   (define new-non-terminals
@@ -57,29 +77,16 @@
     (apply (rule non-terminal) new-non-terminals))
   (set-box! non-terminals-box new-non-terminals))
 
-(define (to-str ele)
-  (apply
-   string-append
-   (flatten
-    (let loop ([ele ele])
-      (cond
-        [(container? ele) (loop (container-content ele))]
-        [(list? ele) (map loop ele)]
-        [(symbol? ele) (symbol->string ele)])))))
-
-(define (size obj)
-  (define ht (make-hasheq))
-  (let loop ([obj obj])
+(define (render-it root start finish)
+  (define current start)
+  (let loop ([ele root])
     (cond
-      [(hash-ref ht obj #f) 0]
-      [else
-       (hash-set! ht obj #t)
-       (match obj
-         [(container content) (+ (loop content) 1)]
-         [(? list? l) (apply + 1 (map loop obj))]
-         [else 1])])))
+      [(container? ele) (loop (container-content ele))]
+      [(list? ele) (for ([ele (in-list ele)]) (loop ele))]
+      [(procedure? ele) (set! current (ele current))]))
+  (finish current))
 
-(define (run-it root rules non-terminals-box)
-  (for/list ([i (in-range 8)])
-    (rewrite rules non-terminals-box)
-    (printf "~a ~a\n" (size root) (to-str root))))
+(define (run-it root rules non-terminals-box start finish iterations)
+  (for ([i (in-range iterations)])
+    (rewrite rules non-terminals-box))
+  (printf "~a\n" (render-it root start finish)))
