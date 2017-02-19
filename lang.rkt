@@ -1,9 +1,11 @@
-#lang racket
-(require (for-syntax syntax/parse
-                     syntax/id-table
-                     racket/dict))
-(provide (all-from-out racket)
-         l-system)
+#lang racket/base
+(require
+  (for-syntax
+   syntax/parse
+   syntax/id-table
+   racket/dict
+   racket/base))
+(provide l-system)
 
 #|
 ;; an exp is either:
@@ -43,19 +45,24 @@
 
 (define-syntax (l-system stx)
   (syntax-parse stx
-    [(_ #:convert-start start
-        #:convert-finish finish
-        #:iterations iterations
-        (C ...) (A -> B ...) ...)
+    [(_ start finish variables (C ...) (A -> B ...) ...)
      (with-syntax ([(T ...) (find-terminals #'(B ... ...) #'(A ...))])
-       #'(let ([A (container A)] ...
-               [T (container T)] ...)
+       #'(let ([A (container (add-prefix A))] ...
+               [T (container (add-prefix T))] ...)
            (register-non-terminals A ...)
            (define rules (list (rule A B ...) ...))
            (axiom root C ...)
            (define non-terminals-box (box (get-non-terminals)))
            (run-it root rules non-terminals-box
-                   start finish iterations)))]))
+                   start finish variables)))]))
+
+(define-syntax (add-prefix stx)
+  (syntax-parse stx
+    [(_ id)
+     (datum->syntax #'id
+                    (string->symbol (format ":::~a" (symbol->string (syntax-e #'id))))
+                    #'id
+                    #'id)]))
 
 (define-for-syntax (find-terminals candidates non-terminals)
   (define table (make-free-id-table))
@@ -77,16 +84,16 @@
     (apply (rule non-terminal) new-non-terminals))
   (set-box! non-terminals-box new-non-terminals))
 
-(define (render-it root start finish)
-  (define current start)
+(define (render-it root start finish variables)
+  (define current (start variables))
   (let loop ([ele root])
     (cond
       [(container? ele) (loop (container-content ele))]
       [(list? ele) (for ([ele (in-list ele)]) (loop ele))]
-      [(procedure? ele) (set! current (ele current))]))
-  (finish current))
+      [(procedure? ele) (set! current (ele current variables))]))
+  (finish current variables))
 
-(define (run-it root rules non-terminals-box start finish iterations)
-  (for ([i (in-range iterations)])
+(define (run-it root rules non-terminals-box start finish variables)
+  (for ([i (in-range (hash-ref variables 'n 4))])
     (rewrite rules non-terminals-box))
-  (printf "~a\n" (render-it root start finish)))
+  (printf "~a\n" (render-it root start finish variables)))

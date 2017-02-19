@@ -1,14 +1,20 @@
-#lang s-exp "lang.rkt"
+#lang lindenmayer racket
 
-(define (finish pr) (* 1. (if (zero? (cdr pr)) +inf.0 (/ (car pr) (cdr pr)))))
-(define (A pr) (cons (+ (car pr) 1) (cdr pr)))
-(define (B pr) (cons (car pr) (+ (cdr pr) 1)))
+## axiom ##
+A
 
-(l-system
- #:convert-start (cons 0 0)
- #:convert-finish finish
- #:iterations 20
- (A) ;; axiom
- (A -> A B)  ;; rule 1
- (B -> A))   ;; rule 2
+## rules ##
+A -> AB
+B -> A
 
+## variables ##
+n=20
+
+============================================================
+
+(provide (all-defined-out))
+
+(define (start variables) (cons 0 0))
+(define (finish pr variables) (* 1. (if (zero? (cdr pr)) +inf.0 (/ (car pr) (cdr pr)))))
+(define (A pr variables) (cons (+ (car pr) 1) (cdr pr)))
+(define (B pr variables) (cons (car pr) (+ (cdr pr) 1)))

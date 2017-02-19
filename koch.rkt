@@ -1,21 +1,28 @@
-#lang s-exp "lang.rkt"
+#lang lindenmayer racket
 
+## axiom ##
+F
+
+## rules ##
+F -> F + F - F - F + F
+
+## variables ##
+n=5
+
+============================================================
+(provide (all-defined-out))
 (require graphics/value-turtles)
 
-(define (F turtles)
+(define (F turtles variables)
   (draw 2 turtles))
-(define (+ turtles)
+(define (+ turtles variables)
   (turn 90 turtles))
-(define (- turtles)
+(define (- turtles variables)
   (turn -90 turtles))
 
-(define w 500)
-(define h 250)
+(define (start variables)
+  (define w 500)
+  (define h 250)
+  (turn -90 (move (* h -1/2) (turn 90 (move (* w -1/2) (turtles w h))))))
 
-(l-system
- #:convert-start
- (turn -90 (move (* h -1/2) (turn 90 (move (* w -1/2) (turtles w h)))))
- #:convert-finish values
- #:iterations 5
- (F)
- (F -> F + F - F - F + F))
+(define (finish turtles variables) (clean turtles))
