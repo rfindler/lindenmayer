@@ -15,7 +15,7 @@
   (define non-terminals-box (box non-terminals))
   (for ([i (in-range (hash-ref variables 'n 4))])
     (rewrite non-terminals-box rules))
-  (printf "~a\n" (render-it root start finish variables)))
+  (render-it root start finish variables))
 
 (define (rewrite non-terminals-box rules)
   (define new-non-terminals
@@ -34,3 +34,21 @@
       [(list? ele) (for ([ele (in-list ele)]) (loop ele))]
       [(procedure? ele) (set! current (ele current variables))]))
   (finish current variables))
+
+(module+ test
+  (require rackunit)
+  
+  (check-equal?
+   (let ()
+     (define (A-proc val variables) (cons 'A val))
+     (define (B-proc val variables) (cons 'B val))
+     (define A (container A-proc))
+     (define B (container B-proc))
+     (run-lindenmayer (container (list A))
+                      (list A B)
+                      (list (λ (A B) (list A B))
+                            (λ (A B) (list A)))
+                      (λ (variables) '())
+                      (λ (val variables) (reverse val))
+                      (hash 'n 4)))
+   '(A B A A B A B A)))
