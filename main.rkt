@@ -49,7 +49,7 @@
               (syntax-case module-after-hyphens ()
                 [(mod name . whatever)
                  (equal? 'module (syntax-e #'mod))
-                 `(,#'module name racket/base
+                 `(,#'module ,#'name racket/base
                              ,#'(mod post-hyphens . whatever)
                              (require (prefix-in ::: (submod "." post-hyphens))
                                       lindenmayer/lang)
