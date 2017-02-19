@@ -1,8 +1,0 @@
-No man Sky: http://nomanssky.wikia.com/wiki/Procedural_generation
-
-Procedural Modeling of Buildings: http://citeseer.ist.psu.edu/viewdoc/summary;jsessionid=3385B7D0876F865A2290595DED58F582?doi=10.1.1.112.183
-
-Procedural modeling of cities: https://graphics.ethz.ch/Downloads/Publications/Papers/2001/p_Par01.pdf
-
-Design and Implementation of the L+C Modeling Language: http://www.sciencedirect.com/science/article/pii/S1571066104806807
-An L-System-Based Plant Modeling Language: https://link.springer.com/chapter/10.1007/3-540-45104-8_31#page-1
