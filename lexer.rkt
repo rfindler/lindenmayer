@@ -1,4 +1,4 @@
-#lang debug racket/base
+#lang racket/base
 (provide wrap-lexer)
 (require racket/match syntax-color/racket-lexer racket/bool)
 (module+ test (require rackunit))
