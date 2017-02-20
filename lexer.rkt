@@ -25,7 +25,6 @@
      (cons v r)]
     [#f #f]))
 
-
 (define o (current-output-port))
 (define (make-lexer inner)
   (define  (lex port offset mode)
