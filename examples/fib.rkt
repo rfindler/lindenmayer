@@ -8,4 +8,4 @@ A -> AB
 B -> A
 
 ## variables ##
-n=8
+n=7

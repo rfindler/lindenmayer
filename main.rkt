@@ -164,10 +164,12 @@
            (define val (read (open-input-string (list-ref split 1)))) ;; TODO: better error checking
            (update-section (cons (list key val) (section-value '())))
            (loop current-section)]
-          [else (failed "internal error.1")]))))
-
-  (define (remove-whitespace l) (regexp-replace* #rx"[ \t]" l ""))
-  (define (blank-line? l) (regexp-match? #rx"^[ \t]*$" l))
+          [else (failed (format "internal error.1 ~s ~s"
+                                current-section
+                                l))]))))
+  
+  (define (remove-whitespace l) (regexp-replace* #rx"[\u00A0 \t]" l ""))
+  (define (blank-line? l) (regexp-match? #rx"^[\u00A0 \t]*$" l))
   
   (define-values (interop-read interop-read-syntax interop-get-info)
     (make-meta-reader
