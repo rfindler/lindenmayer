@@ -1,16 +1,15 @@
 #lang lindenmayer racket
 
 ## axiom ##
-X
+F
 
 ## rules ##
-X -> F-[[X]+X]+F[+FX]-X
-F -> FF
+F -> F[+F]F[-F]F
 
 ## variables ##
-n=6
-θ=22.5
-w=400
+n=5
+θ=25.7
+w=250
 h=500
 
 ------------------------------------------------------------
@@ -23,9 +22,23 @@ F -> F[+F]F[-F][F]
 
 ## variables ##
 n=5
-θ=22
-w=250
-h=250
+θ=20
+w=150
+h=150
+
+------------------------------------------------------------
+
+## axiom ##
+F
+
+## rules ##
+F -> FF-[-F+F+F]+[+F-F-F]
+
+## variables ##
+n=4
+θ=22.5
+w=150
+h=150
 
 ------------------------------------------------------------
 
@@ -39,8 +52,38 @@ F -> FF
 ## variables ##
 n=7
 θ=20
-w=600
-h=800
+w=400
+h=550
+
+------------------------------------------------------------
+
+## axiom ##
+X
+
+## rules ##
+X -> F[+X][-X]FX
+F -> FF
+
+## variables ##
+n=7
+θ=25.7
+w=350
+h=550
+
+------------------------------------------------------------
+
+## axiom ##
+X
+
+## rules ##
+X -> F-[[X]+X]+F[+FX]-X
+F -> FF
+
+## variables ##
+n=6
+θ=22.5
+w=350
+h=350
 
 ============================================================
 
@@ -49,7 +92,7 @@ h=800
          (prefix-in : racket/base))
 
 (define (X turtles variables) turtles)
-(define (F turtles variables) (cons (draw 3 (car turtles)) (cdr turtles)))
+(define (F turtles variables) (cons (draw 2 (car turtles)) (cdr turtles)))
 (define (- turtles variables) (cons (turn (:- (hash-ref variables 'θ)) (car turtles)) (cdr turtles)))
 (define (+ turtles variables) (cons (turn (hash-ref variables 'θ) (car turtles)) (cdr turtles)))
 (define (|[| turtles variables) (list* (car turtles) (turtle-state (car turtles)) (cdr turtles)))
