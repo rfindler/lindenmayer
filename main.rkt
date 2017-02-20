@@ -5,7 +5,9 @@
                     lang-reader-module-paths)
            racket/list
            racket/port
-           syntax/readerr)
+           syntax/readerr
+           racket/match
+           "lexer.rkt")
 
   (define (wrap-read _read) _read)
   (define (wrap-read-syntax _read-syntax)
@@ -65,9 +67,14 @@
           [else
            (read-and-put-byte)
            (loop 0 line (+ col 1) (+ pos 1))]))))
-  (define (wrap-get-info _get-info) _get-info)
+  (define (wrap-get-info _get-info)
+    (match-lambda**
+     [('color-lexer default)
+      (wrap-lexer (_get-info 'color-lexer default))]
+     [(sym def) (_get-info sym def)]))
 
-  (define mandatory-sections '(axiom rules))
+
+(define mandatory-sections '(axiom rules))
   (define valid-sections (append mandatory-sections '(variables)))
   (define (valid-section? s) (member s valid-sections))
   (define section-names-str
