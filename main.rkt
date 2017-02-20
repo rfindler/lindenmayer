@@ -15,7 +15,7 @@
       (define front-parse-chan (make-channel))
       (thread (λ ()
                 (set-port-next-location! _out line col pos)
-                (channel-put front-parse-chan (parse-front _in src))))
+                (channel-put front-parse-chan (parse-fronts _in src))))
       (define (fetch-front-result)
         (close-output-port _out)
         (define val (channel-get front-parse-chan))
@@ -53,7 +53,7 @@
                              ,#'(mod post-hyphens . whatever)
                              (require (prefix-in ::: (submod "." post-hyphens))
                                       lindenmayer/lang)
-                             ,front-result)]
+                             ,@front-result)]
                 [_ module-after-hyphens])]
              [else module-after-hyphens])]
           [(equal? c newline)
@@ -70,11 +70,33 @@
   (define (valid-section? s) (member s valid-sections))
   (define section-names-str
     (apply string-append (add-between (map (λ (x) (format "~a" x)) valid-sections) " ")))
-  
+
+  (define (parse-fronts port src)
+    (let loop ([n 0]
+               [l-systems '()])
+      (define-values (sections eof?)
+        (parse-front port src))
+      (define l-system
+    (datum->syntax
+       #f
+       `(l-system
+         ,n :::start :::finish
+         (quote
+          ,(for/hash ([pr (in-list (hash-ref sections 'variables '()))])
+             (values (list-ref pr 0) (list-ref pr 1))))
+         ,(for/list ([c (in-string (hash-ref sections 'axiom))])
+            (string->symbol (string c)))
+         ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
+             `(,(string->symbol (list-ref pr 0))
+               ->
+               ,@(for/list ([c (in-string (list-ref pr 1))])
+                   (string->symbol (string c))))))))
+      (cond [eof? (reverse (cons l-system l-systems))]
+            [else (loop (+ n 1) (cons l-system l-systems))])))
   (define (parse-front port src)
     (define-values (start-line start-col start-pos) (port-next-location port))
     (define sections (make-hash))
-    (with-handlers ([exn:fail:read? (λ (x) x)])
+    (with-handlers ([exn:fail:read? (λ (x) (values x #t))])
       (let loop ([current-section #f])
         (define (update-section nv) (hash-set! sections current-section nv))
         (define (section-value default) (hash-ref sections current-section default))
@@ -82,16 +104,17 @@
         (define l (read-line port))
         (define-values (after-line after-col after-pos) (port-next-location port))
         (define (failed msg) (raise-read-error msg src line col pos (- after-pos pos)))
+        (define (l-system-end? l) (regexp-match? #rx"^ *---+ *$" l))
+        (define (input-end? l) (or (eof-object? l) (regexp-match? #rx"^ *===+ *$" l)))
         (cond
-          [(eof-object? l)
+          [(or (input-end? l) (l-system-end? l))
            (for ([sec (in-list mandatory-sections)])
              (unless (hash-ref sections sec #f)
                (raise-read-error
                 (format "did not find the `## ~a ##' section" sec)
                 src start-line start-col start-pos (- after-pos start-pos))))
-           sections]
-          [(regexp-match? #rx"^ *===+ *$" l)
-           (loop #f)]
+           (hash-set! sections 'rules (reverse (hash-ref sections 'rules)))
+           (values sections (input-end? l))]
           [(blank-line? l) (loop current-section)]
           [(regexp-match #rx"#" l)
            (define m (regexp-match #rx"^ *(#+) +([a-zA-Z][a-zA-Z ]*[a-zA-Z]) +(#*) *$" l))
@@ -131,22 +154,7 @@
            (define val (read (open-input-string (list-ref split 1)))) ;; TODO: better error checking
            (update-section (cons (list key val) (section-value '())))
            (loop current-section)]
-          [else (failed "internal error.1")]))
-      (hash-set! sections 'rules (reverse (hash-ref sections 'rules)))
-      (datum->syntax
-       #f
-       `(l-system
-         :::start :::finish
-         (quote
-          ,(for/hash ([pr (in-list (hash-ref sections 'variables '()))])
-             (values (list-ref pr 0) (list-ref pr 1))))
-         ,(for/list ([c (in-string (hash-ref sections 'axiom))])
-            (string->symbol (string c)))
-         ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
-             `(,(string->symbol (list-ref pr 0))
-               ->
-               ,@(for/list ([c (in-string (list-ref pr 1))])
-                   (string->symbol (string c)))))))))
+          [else (failed "internal error.1")]))))
 
   (define (remove-whitespace l) (regexp-replace* #rx"[ \t]" l ""))
   (define (blank-line? l) (regexp-match? #rx"^[ \t]*$" l))
@@ -160,7 +168,7 @@
      wrap-read-syntax
      wrap-get-info))
   (provide
-   parse-front ;; for tests
+   parse-fronts ;; for tests
    (rename-out
     [-read read]
     [-read-syntax read-syntax]
@@ -169,27 +177,42 @@
 
 (module+ test
   (require rackunit (submod ".." reader))
-  (check-equal? (syntax->datum
-                 (parse-front (open-input-string "# axiom #\nA\n# rules #\nA->AA") #f))
-                '(l-system :::start :::finish '#hash() (A) (A -> A A)))
-  (check-equal? (syntax->datum
-                 (parse-front (open-input-string "# axiom #\n\n\nA\n\n# rules #\nA->AA\nB->BA") #f))
-                '(l-system :::start :::finish  '#hash() (A) (A -> A A) (B -> B A)))
-  (check-equal? (syntax->datum
-                 (parse-front (open-input-string
-                               (string-append
-                                "# axiom #\n"
-                                "A\n"
-                                "\n"
-                                "### variables ###\n"
-                                "n=20\n"
-                                "w=54\n"
-                                "## rules ##\n"
-                                "A → A A\n"
-                                "B → B A\n"))
-                              #f))
-                '(l-system :::start :::finish
-                           '#hash((w . 54) (n . 20))
-                           (A)
-                           (A -> A A)
-                           (B -> B A))))
+  (check-equal? (map
+                 syntax->datum
+                 (parse-fronts (open-input-string "# axiom #\nA\n# rules #\nA->AA") #f))
+                '((l-system 0 :::start :::finish '#hash() (A) (A -> A A))))
+  (check-equal? (map
+                 syntax->datum
+                 (parse-fronts (open-input-string "# axiom #\n\n\nA\n\n# rules #\nA->AA\nB->BA") #f))
+                '((l-system 0 :::start :::finish  '#hash() (A) (A -> A A) (B -> B A))))
+  (check-equal? (map
+                 syntax->datum
+                 (parse-fronts (open-input-string
+                                (string-append
+                                 "# axiom #\n"
+                                 "A\n"
+                                 "\n"
+                                 "### variables ###\n"
+                                 "n=20\n"
+                                 "w=54\n"
+                                 "## rules ##\n"
+                                 "A → A A\n"
+                                 "B → B A\n"))
+                               #f))
+                '((l-system 0 :::start :::finish
+                            '#hash((w . 54) (n . 20))
+                            (A)
+                            (A -> A A)
+                            (B -> B A))))
+  (check-equal? (map syntax->datum
+                     (parse-fronts (open-input-string
+                                    (string-append
+                                     "# axiom #\nA\n# rules #\nA->AA\n"
+                                     "---\n"
+                                     "# axiom #\nX\n# rules #\nB->CX\n"
+                                     "---\n"
+                                     "# axiom #\nA\n# rules #\nA->AA\nB->BA"))
+                                   #f))
+                '((l-system 0 :::start :::finish '#hash() (A) (A -> A A))
+                  (l-system 1 :::start :::finish '#hash() (X) (B -> C X))
+                  (l-system 2 :::start :::finish  '#hash() (A) (A -> A A) (B -> B A)))))

@@ -8,37 +8,43 @@
   "runtime.rkt")
 (provide l-system)
 
-(define-for-syntax non-terminals (make-hash))
+(define-for-syntax all-non-terminals (make-hash))
 
 (define-syntax (register-non-terminals stx)
   (syntax-parse stx
-    [(_ name ...)
+    [(_ no name ...)
+     (define non-terminals (make-hash))
      (for ([name (in-list (syntax->list #'(name ...)))])
        (hash-set! non-terminals (hash-count non-terminals)
                   (syntax-local-introduce name)))
+     (hash-set! all-non-terminals (syntax-e #'no) non-terminals)
      #'(void)]))
 
 (define-syntax (rule stx)
   (syntax-parse stx
-    [(_ rhs ...)
+    [(_ no rhs ...)
+     (define non-terminals (hash-ref all-non-terminals (syntax-e #'no)))
      (define ids (for/list ([i (in-range (hash-count non-terminals))])
                    (syntax-local-introduce (hash-ref non-terminals i))))
      #`(λ (#,@ids) (list rhs ...))]))
 
 (define-syntax (get-non-terminals stx)
-  #`(list #,@(for/list ([i (in-range (hash-count non-terminals))])
-               (hash-ref non-terminals i))))
+  (syntax-parse stx
+    [(_ no)
+     (define non-terminals (hash-ref all-non-terminals (syntax-e #'no)))
+     #`(list #,@(for/list ([i (in-range (hash-count non-terminals))])
+                  (hash-ref non-terminals i)))]))
 
 (define-syntax (l-system stx)
   (syntax-parse stx
-    [(_ start finish variables (C ...) (A -> B ...) ...)
+    [(_ no start finish variables (C ...) (A -> B ...) ...)
      (with-syntax ([(T ...) (find-terminals #'(B ... ...) #'(A ...))])
        #'(let ([A (container (add-prefix A))] ...
                [T (container (add-prefix T))] ...)
-           (register-non-terminals A ...)
+           (register-non-terminals no A ...)
            (run-lindenmayer (container (list C ...))
-                            (get-non-terminals)
-                            (list (rule B ...) ...)
+                            (get-non-terminals no)
+                            (list (rule no B ...) ...)
                             start finish variables)))]))
 
 (define-syntax (add-prefix stx)
