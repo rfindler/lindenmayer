@@ -7,6 +7,7 @@
            racket/port
            syntax/readerr
            racket/match
+           racket/syntax
            "lexer.rkt")
 
   (define (wrap-read _read) _read)
@@ -14,10 +15,13 @@
     (define double-hyphen (bytes-ref #"=" 0))
     (define newline (bytes-ref #"\n" 0))
     (λ (name in src line col pos)
+      (define-values (in-line in-col in-pos) (port-next-location in))
       (define-values (_in _out) (make-pipe))
       (define front-parse-chan (make-channel))
       (thread (λ ()
                 (set-port-next-location! _out line col pos)
+                (port-count-lines! _in)
+                (set-port-next-location! _in in-line in-col in-pos)
                 (define-values (fronts nts) (parse-fronts _in src))
                 (channel-put front-parse-chan fronts)))
       (define (fetch-front-result)
@@ -97,18 +101,19 @@
               (quote
                ,(for/hash ([pr (in-list (hash-ref sections 'variables '()))])
                   (values (list-ref pr 0) (list-ref pr 1))))
-              ,(for/list ([c (in-string (hash-ref sections 'axiom))])
-                 (string->symbol (string c)))
+              ,(for/list ([c (in-list (hash-ref sections 'axiom))])
+                 c)
               ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
-                  `(,(string->symbol (list-ref pr 0))
+                  `(,(car (list-ref pr 0))
                     ->
-                    ,@(for/list ([c (in-string (list-ref pr 1))])
-                        (string->symbol (string c))))))))
+                    ,@(for/list ([c (in-list (list-ref pr 1))])
+                        c))))))
          (for ([pr (in-list (hash-ref sections 'rules))])
-           (hash-set! non-terminals (string->symbol (list-ref pr 0)) #t))
+           (hash-set! non-terminals (car (list-ref pr 0)) #t))
          (cond [eof? (values (reverse (cons l-system l-systems))
                              (sort (hash-map non-terminals (λ (x y) x))
-                                   symbol<?))]
+                                   symbol<?
+                                   #:key syntax-e))]
                [else (loop (+ n 1) (cons l-system l-systems))])])))
   (define (parse-front port src)
     (define-values (start-line start-col start-pos) (port-next-location port))
@@ -149,7 +154,7 @@
           [(equal? current-section 'axiom)
            (when (section-value #f)
              (failed "found a second axiom"))
-           (update-section (remove-whitespace l))
+           (update-section (process-axiom l src line col pos))
            (loop current-section)]
           [(equal? current-section 'rules)
            (define arr1? (regexp-match? #rx"->" l))
@@ -160,7 +165,8 @@
                              (regexp-split #rx"→" (remove-whitespace l))))
            (unless (= 2 (length split))
              (failed (format "expected only one `~a'" (if arr1? "->" "→"))))
-           (update-section (cons split (section-value '())))
+           (define stxs (process-rule l src line col pos))
+           (update-section (cons stxs (section-value '())))
            (loop current-section)]
           [(equal? current-section 'variables)
            (unless (regexp-match? #rx"=" l)
@@ -174,7 +180,57 @@
           [else (failed (format "internal error.1 ~s ~s"
                                 current-section
                                 l))]))))
+
   
+  (define (process-axiom str src line col pos)
+    (define-values (result _) (process-port (open-input-string str) src line col pos))
+    result)
+
+  (define (process-rule str src line col pos)
+    (define arr1? (regexp-match? #rx"->" str))
+    (define (end? c p)
+      (if arr1?
+          (and (equal? c #\-)
+               (equal? (peek-char p) #\>)
+               (read-char p) ;; consume the character
+               #t)
+          (equal? c #\→)))
+    (define the-port (open-input-string str))
+    (match-define-values (left (list new-src new-line new-col new-pos))
+      (process-port the-port src line col pos end?))
+    (define-values (right _)
+      (process-port the-port
+                    new-src
+                    new-line
+                    (if arr1? (maybe-add1 (maybe-add1 new-col)) (maybe-add1 new-col))
+                    (if arr1? (maybe-add1 (maybe-add1 new-pos)) (maybe-add1 new-pos))))
+    (list left right))
+
+  (define (process-port sp src line col pos [end? (λ (c p) (eof-object? c))])
+    (let loop ([c (read-char sp)]
+               [line line]
+               [col col]
+               [pos pos]
+               [stxs '()])
+      (define (do-loop [stxs stxs])
+        (loop (read-char sp) line (maybe-add1 col) (maybe-add1 pos) stxs))
+      (cond
+        [(end? c sp) (values (reverse stxs) (list src line col pos))]
+        [(char-whitespace? c)
+         ;; skip whitespace, can assume no newlines
+         (do-loop)]
+        [else
+         ;; this character needs to be turned into an identifier
+         (define stx-port (to-sym-port c src))
+         (port-count-lines! stx-port)
+         (set-port-next-location! stx-port line col pos)
+         (define stx (read-syntax src stx-port))
+         (do-loop (cons stx stxs))])))
+
+  (define (to-sym-port char src)
+    (open-input-string (format "~s" (string->symbol (string char)))))
+  
+  (define (maybe-add1 n) (and n (add1 n)))
   (define (remove-whitespace l) (regexp-replace* #rx"[\u00A0 \t]" l ""))
   (define (blank-line? l) (regexp-match? #rx"^[\u00A0 \t]*$" l))
   
@@ -209,7 +265,7 @@
            (define (:::start variables) (void))
            (define (:::finish val variables) (newline))
            ,@(for/list ([nt (in-list nts)])
-               `(define (,(string->symbol (format ":::~a" nt)) state vars) (display ',nt)))
+               `(define (,(format-id nt ":::~a" nt) state vars) (display ',nt)))
            ,@front-result))]))
 
   (define (-get-info port source line col position)
@@ -234,9 +290,11 @@
 (module+ test
   (require rackunit (submod ".." reader))
   (define (parse-fronts/1 port source)
+    (port-count-lines! port)
     (define-values (fronts nts) (parse-fronts port source))
     (map syntax->datum fronts))
   (define (parse-fronts/2 port source)
+    (port-count-lines! port)
     (define-values (fronts nts) (parse-fronts port source))
     nts)
   (check-equal? (parse-fronts/1 (open-input-string "# axiom #\nA\n# rules #\nA->AA") #f)
