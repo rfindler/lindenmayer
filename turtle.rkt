@@ -15,4 +15,4 @@
   (define w (hash-ref variables 'w 500))
   (define h (hash-ref variables 'h 500))
   (cons (move (/ h -2) (turn 90 (move (/ w 10) (turtles w h)))) '()))
-(define (finish turtles variables) (clean (car turtles)))
+(define (finish turtles variables) (turtles-pict (car turtles)))
