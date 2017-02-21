@@ -69,7 +69,7 @@
            (loop 0 line (+ col 1) (+ pos 1))]))))
   (define (wrap-get-info _get-info)
     (match-lambda**
-     [('color-lexer default)
+     #;[('color-lexer default)
       (wrap-lexer (_get-info 'color-lexer default))]
      [(sym def) (_get-info sym def)]))
 
