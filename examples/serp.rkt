@@ -9,24 +9,9 @@ G -> G G
 
 ## variables ##
 n=6
+θ=120
 
 ============================================================
-(provide (all-defined-out))
-
-(require graphics/value-turtles)
-
-(define (F turtles variables)
-  (draw 4 turtles))
-(define (G turtles variables)
-  (draw 4 turtles))
-(define (- turtles variables)
-  (turn 120 turtles))
-(define (+ turtles variables)
-  (turn -120 turtles))
-
-(define w 260)
-(define h 240)
-(define (start variables)
-  (turn -90 (move (* h -1/2) (turn 90 (move (* w -1/2) (turtles w h))))))
-(define (finish turtles variables) (clean turtles))
-
+(require lindenmayer/turtle)
+(provide (all-from-out lindenmayer/turtle) G)
+(define G F)
