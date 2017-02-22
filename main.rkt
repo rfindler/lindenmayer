@@ -14,7 +14,7 @@
   (define (wrap-read-syntax _read-syntax)
     (define double-hyphen (bytes-ref #"=" 0))
     (define newline (bytes-ref #"\n" 0))
-    (λ (name in src line col pos)
+    (λ (name in module-path line col pos)
       (define-values (in-line in-col in-pos) (port-next-location in))
       (define-values (_in _out) (make-pipe))
       (define front-parse-chan (make-channel))
@@ -22,7 +22,7 @@
                 (set-port-next-location! _out line col pos)
                 (port-count-lines! _in)
                 (set-port-next-location! _in in-line in-col in-pos)
-                (define-values (fronts nts) (parse-fronts _in src))
+                (define-values (fronts nts) (parse-fronts _in name))
                 (channel-put front-parse-chan fronts)))
       (define (fetch-front-result)
         (close-output-port _out)
@@ -49,7 +49,7 @@
            (define module-after-hyphens
              (cond
                [(procedure-arity-includes? _read-syntax 6)
-                (_read-syntax name in src line col pos)]
+                (_read-syntax name in module-path line col pos)]
                [else
                 (_read-syntax name in)]))
            (cond
@@ -84,12 +84,12 @@
   (define section-names-str
     (apply string-append (add-between (map (λ (x) (format "~a" x)) valid-sections) " ")))
 
-  (define (parse-fronts port src)
+  (define (parse-fronts port name)
     (define non-terminals (make-hash))
     (let loop ([n 0]
                [l-systems '()])
       (define-values (sections eof?)
-        (parse-front port src))
+        (parse-front port name))
       (cond
         [(exn? sections) (values sections '())]
         [else
@@ -115,7 +115,7 @@
                                    symbol<?
                                    #:key syntax-e))]
                [else (loop (+ n 1) (cons l-system l-systems))])])))
-  (define (parse-front port src)
+  (define (parse-front port name)
     (define-values (start-line start-col start-pos) (port-next-location port))
     (define sections (make-hash))
     (with-handlers ([exn:fail:read? (λ (x) (values x #t))])
@@ -125,7 +125,7 @@
         (define-values (line col pos) (port-next-location port))
         (define l (read-line port))
         (define-values (after-line after-col after-pos) (port-next-location port))
-        (define (failed msg) (raise-read-error msg src line col pos (- after-pos pos)))
+        (define (failed msg) (raise-read-error msg name line col pos (- after-pos pos)))
         (define (l-system-end? l) (regexp-match? #rx"^ *---+ *$" l))
         (define (input-end? l) (or (eof-object? l) (regexp-match? #rx"^ *===+ *$" l)))
         (cond
@@ -134,7 +134,7 @@
              (unless (hash-ref sections sec #f)
                (raise-read-error
                 (format "did not find the `## ~a ##' section" sec)
-                src start-line start-col start-pos (- after-pos start-pos))))
+                name start-line start-col start-pos (- after-pos start-pos))))
            (hash-set! sections 'rules (reverse (hash-ref sections 'rules)))
            (values sections (input-end? l))]
           [(blank-line? l) (loop current-section)]
@@ -154,7 +154,7 @@
           [(equal? current-section 'axiom)
            (when (section-value #f)
              (failed "found a second axiom"))
-           (update-section (process-axiom l src line col pos))
+           (update-section (process-axiom l name line col pos))
            (loop current-section)]
           [(equal? current-section 'rules)
            (define arr1? (regexp-match? #rx"->" l))
@@ -165,7 +165,7 @@
                              (regexp-split #rx"→" (remove-whitespace l))))
            (unless (= 2 (length split))
              (failed (format "expected only one `~a'" (if arr1? "->" "→"))))
-           (define stxs (process-rule l src line col pos))
+           (define stxs (process-rule l name line col pos))
            (update-section (cons stxs (section-value '())))
            (loop current-section)]
           [(equal? current-section 'variables)
@@ -182,11 +182,11 @@
                                 l))]))))
 
   
-  (define (process-axiom str src line col pos)
-    (define-values (result _) (process-port (open-input-string str) src line col pos))
+  (define (process-axiom str name line col pos)
+    (define-values (result _) (process-port (open-input-string str) name line col pos))
     result)
 
-  (define (process-rule str src line col pos)
+  (define (process-rule str name line col pos)
     (define arr1? (regexp-match? #rx"->" str))
     (define (end? c p)
       (if arr1?
@@ -196,38 +196,38 @@
                #t)
           (equal? c #\→)))
     (define the-port (open-input-string str))
-    (match-define-values (left (list new-src new-line new-col new-pos))
-      (process-port the-port src line col pos end?))
+    (match-define-values (left (list new-line new-col new-pos))
+      (process-port the-port name line col pos end?))
     (define-values (right _)
       (process-port the-port
-                    new-src
+                    name
                     new-line
                     (if arr1? (maybe-add1 (maybe-add1 new-col)) (maybe-add1 new-col))
                     (if arr1? (maybe-add1 (maybe-add1 new-pos)) (maybe-add1 new-pos))))
     (list left right))
 
-  (define (process-port sp src line col pos [end? (λ (c p) (eof-object? c))])
+  (define (process-port sp name line col pos [end? (λ (c p) (eof-object? c))])
     (let loop ([c (read-char sp)]
                [line line]
                [col col]
                [pos pos]
                [stxs '()])
-      (define (do-loop [stxs stxs])
+      (define (do-loop stxs)
         (loop (read-char sp) line (maybe-add1 col) (maybe-add1 pos) stxs))
       (cond
-        [(end? c sp) (values (reverse stxs) (list src line col pos))]
+        [(end? c sp) (values (reverse stxs) (list line col pos))]
         [(char-whitespace? c)
          ;; skip whitespace, can assume no newlines
-         (do-loop)]
+         (do-loop stxs)]
         [else
          ;; this character needs to be turned into an identifier
-         (define stx-port (to-sym-port c src))
+         (define stx-port (to-sym-port c))
          (port-count-lines! stx-port)
          (set-port-next-location! stx-port line col pos)
-         (define stx (read-syntax src stx-port))
+         (define stx (read-syntax name stx-port))
          (do-loop (cons stx stxs))])))
 
-  (define (to-sym-port char src)
+  (define (to-sym-port char)
     (open-input-string (format "~s" (string->symbol (string char)))))
   
   (define (maybe-add1 n) (and n (add1 n)))
