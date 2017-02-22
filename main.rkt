@@ -10,7 +10,12 @@
            racket/syntax
            "lexer.rkt")
 
-  (define (wrap-read _read) _read)
+  (define (wrap-read _read)
+    _read
+    #;(λ (in module-path line col pos)
+      (if (procedure-arity-includes? _read 5)
+          (_read in module-path line col pos)
+          (_read in))))
   (define (wrap-read-syntax _read-syntax)
     (define double-hyphen (bytes-ref #"=" 0))
     (define newline (bytes-ref #"\n" 0))
@@ -109,11 +114,10 @@
                     ,@(for/list ([c (in-list (list-ref pr 1))])
                         c))))))
          (for ([pr (in-list (hash-ref sections 'rules))])
-           (hash-set! non-terminals (car (list-ref pr 0)) #t))
+           (hash-set! non-terminals (syntax-e (car (list-ref pr 0))) #t))
          (cond [eof? (values (reverse (cons l-system l-systems))
                              (sort (hash-map non-terminals (λ (x y) x))
-                                   symbol<?
-                                   #:key syntax-e))]
+                                   symbol<?))]
                [else (loop (+ n 1) (cons l-system l-systems))])])))
   (define (parse-front port name)
     (define-values (start-line start-col start-pos) (port-next-location port))
@@ -352,4 +356,5 @@
                                   "---\n"
                                   "# axiom #\nQ\n# rules #\nQ->QQ\nW->WQ"))
                                 #f)
-                '(A B Q W)))
+                '(A B Q W))
+  )
