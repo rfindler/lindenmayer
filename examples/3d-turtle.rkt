@@ -22,13 +22,23 @@
 ;; pos : Pos, di Dir, up:Dir
 ;; up and dir *must* be orthoginal
 ;; up and dir must be unit vectors
+
+
+(define line-size 1/4)
+(define ls/2 (/ line-size 2))
+(define cap (sphere origin ls/2))
+(define line-length 1)
 (define pipe
-  (rotate-y
-  (move
-   (cylinder origin
-             (pos 1/2 1/2 1))
-   (dir -1/4 -1/4 0))
-  90))
+  (freeze
+   (combine
+    cap
+    (move cap (dir line-length 0 0)) 
+    (rotate-y
+     (move
+      (cylinder origin
+                (pos line-size line-size line-length))
+      (dir (- ls/2) (- ls/2) 0))
+     90))))
 
 (define (draw turtles)
   (for/fold ([p empty-pict3d])
