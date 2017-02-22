@@ -13,7 +13,7 @@ n=10
 ============================================================
 
 (provide (all-defined-out))
-(require graphics/value-turtles)
+(require graphics/value-turtles pict)
 
 (define (X turtles variables) turtles)
 (define (Y turtles variables) turtles)
@@ -28,4 +28,5 @@ n=10
 (define h 250)
 
 (define (start variables) (turn 90 (turtles w h)))
-(define (finish turtles variables) turtles)
+(define (finish turtles variables)
+  (inset (turtles-pict turtles) 1))
