@@ -141,6 +141,7 @@
             (update-section (cons pending-rule (section-value '())))))
         (cond
           [(or (input-end? l) (l-system-end? l))
+           (handle-pending-rule)
            (for ([sec (in-list mandatory-sections)])
              (unless (hash-ref sections sec #f)
                (raise-read-error
