@@ -265,7 +265,11 @@
            (define (:::start variables) (void))
            (define (:::finish val variables) (newline))
            ,@(for/list ([nt (in-list nts)])
-               `(define (,(format-id nt ":::~a" nt) state vars) (display ',nt)))
+               `(define (,(syntax-property
+                           (format-id nt ":::~a" nt #:source nt)
+                           'original-for-check-syntax
+                           #t)
+                           state vars) (display ',nt)))
            ,@front-result))]))
 
   (define (-get-info port source line col position)
