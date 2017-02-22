@@ -10,12 +10,6 @@
            racket/syntax
            "lexer.rkt")
 
-  (define (wrap-read _read)
-    _read
-    #;(λ (in module-path line col pos)
-      (if (procedure-arity-includes? _read 5)
-          (_read in module-path line col pos)
-          (_read in))))
   (define (wrap-read-syntax _read-syntax)
     (define double-hyphen (bytes-ref #"=" 0))
     (define newline (bytes-ref #"\n" 0))
@@ -47,7 +41,7 @@
            (fetch-front-result)]
           [(equal? c double-hyphen)
            (read-and-put-byte)
-           (loop (+ n 1) line (+ col 1) (+ pos 1))]
+           (loop (+ n 1) line (maybe-add1 col) (maybe-add1 pos))]
           [(n . > . 3)
            (define front-result (fetch-front-result))
            ;; found the end of our double hyphens
@@ -62,20 +56,22 @@
               (syntax-case module-after-hyphens ()
                 [(mod name . whatever)
                  (equal? 'module (syntax-e #'mod))
-                 `(,#'module ,#'name racket/base
-                             ,#'(mod post-hyphens . whatever)
-                             (require (prefix-in ::: (submod "." post-hyphens))
-                                      lindenmayer/lang)
-                             ,@front-result)]
+                 (datum->syntax
+                  #f
+                  `(,#'module ,#'name racket/base
+                              ,#'(mod post-hyphens . whatever)
+                              (require (prefix-in ::: (submod "." post-hyphens))
+                                       lindenmayer/lang)
+                              ,@front-result))]
                 [_ module-after-hyphens])]
              [else module-after-hyphens])]
           [(equal? c newline)
            ;; found a non-hyphen and not at the end of a sequence of hyphens
            (read-and-put-byte)
-           (loop 0 (+ line 1) 0 (+ pos 1))]
+           (loop 0 (maybe-add1 line) (and col 0) (maybe-add1 pos))]
           [else
            (read-and-put-byte)
-           (loop 0 line (+ col 1) (+ pos 1))]))))
+           (loop 0 line (and col (+ col 1)) (maybe-add1 pos))]))))
   (define (wrap-get-info _get-info)
     (match-lambda**
      #;[('color-lexer default)
@@ -243,17 +239,11 @@
      'lindenmayer
      "language path"
      lang-reader-module-paths
-     wrap-read
+     (λ (_r) (λ (port) (error 'lindenmayer::read "shouldn't be called")))
      wrap-read-syntax
      wrap-get-info))
 
-  (define (-read port source line col position)
-    (cond
-      [(appears-to-have-second-lang? port)
-       (interop-read port source line col position)]
-      [else
-       (error '-read "unimplemented")]))
-
+  (define (-read port) (syntax->datum (-read-syntax #f port #f #f #f #f)))
   (define (-read-syntax name port source line col position)
     (cond
       [(appears-to-have-second-lang? port)
@@ -269,11 +259,9 @@
            (define (:::start variables) (void))
            (define (:::finish val variables) (newline))
            ,@(for/list ([nt (in-list nts)])
-               `(define (,(syntax-property
-                           (format-id nt ":::~a" nt #:source nt)
-                           'original-for-check-syntax
-                           #t)
-                           state vars) (display ',nt)))
+               `(define (,(string->symbol (format ":::~a" nt))
+                         state vars)
+                  (display ',nt)))
            ,@front-result))]))
 
   (define (-get-info port source line col position)
@@ -296,7 +284,7 @@
 
 
 (module+ test
-  (require rackunit (submod ".." reader))
+  (require rackunit (only-in (submod ".." reader) parse-fronts))
   (define (parse-fronts/1 port source)
     (port-count-lines! port)
     (define-values (fronts nts) (parse-fronts port source))
@@ -357,4 +345,18 @@
                                   "# axiom #\nQ\n# rules #\nQ->QQ\nW->WQ"))
                                 #f)
                 '(A B Q W))
+
+  (check-not-exn
+   (λ ()
+     (parameterize ([read-accept-reader #t])
+       (read (open-input-string "#lang lindenmayer\n# axiom #\nA\n# rules #\nA -> A\n")))))
+
+  (check-not-exn
+   (λ ()
+     (parameterize ([read-accept-reader #t])
+       (read (open-input-string
+              (string-append
+               "#lang lindenmayer racket\n"
+               "# axiom #\nA\n# rules #\nA -> A\n"
+               "=========\n(+ 1 2)"))))))
   )
