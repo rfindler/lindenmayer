@@ -1,6 +1,6 @@
 #lang racket
 (provide (all-defined-out))
-(require pict3d)
+(require pict3d (prefix-in 3d: pict3d))
 (module+ test (require rackunit))
 
 (define (unit-dir? d)
@@ -23,10 +23,12 @@
 ;; up and dir *must* be orthoginal
 ;; up and dir must be unit vectors
 (define pipe
+  (rotate-y
   (move
    (cylinder origin
              (pos 1/2 1/2 1))
-   (dir -1/4 -1/4 0)))
+   (dir -1/4 -1/4 0))
+  90))
 
 (define (draw turtles)
   (for/fold ([p empty-pict3d])
@@ -36,16 +38,33 @@
 
 ;;;; helpers
 (define (turtles->pipe start-t end-t)
-  (match-define (turtle pos dir _) start-t)
-  (match-define (turtle _ _ _) end-t)
-  (define-values (θ φ) (dir->angles dir))
+  (match-define (turtle start _  _) start-t)
+  (match-define (turtle end _ _) end-t)
+  (define dir (dir- end start))
+  (define-values (yaw pitch) (dir->angles dir))
+  (define crossdir (dir-cross +x dir))
+  (define axis (dir-cross +x dir))
+  (define angle
+    (radians->degrees
+     (acos
+      (/ (dir-dot +x dir)
+         (* (dir-dist +x) (dir-dist dir))))))
   (transform
    pipe
    (affine-compose
-    (move pos)
-    (linear-compose
-     (rotate-z θ)
-     (rotate-x φ)))))
+    (move start)
+    (if (zero-dir? axis)
+        (if (= 180.0 angle) (3d:rotate +z angle) identity-affine)
+        (3d:rotate axis angle)))))
+
+(define (zero-dir? axis)
+  (and (zero-ish? (dir-dx axis))
+       (zero-ish? (dir-dy axis))
+       (zero-ish? (dir-dz axis))))
+
+(define (zero-ish? x)
+  (define threshold 0.0000001)
+  (> threshold x (- threshold)))
 
 ;; rotate the turtle left/right by φ degrees
 (define (yaw t φ)
@@ -58,7 +77,7 @@
   (match-define (turtle pos dir up) t)
   (define axis (dir-cross dir up))
   (define dir* (rotate dir axis φ))
-  (define up* (dir-cross dir* axis))
+  (define up* (rotate up axis φ))
   (make-turtle pos dir* up*))
 
 ;; pitch the turtle by φ degrees
@@ -83,12 +102,4 @@
      (dir-scale (dir-cross k v) (sin θ))
      (dir-scale k (* (dir-dot k v) (- 1 (cos θ))))))))
 
-(module+ test
-  (check-equal?
-   (rotate (dir 1 0 0)
-           (dir 0 0 1)
-           90)
-   (dir 0 1 0))
-  (check-equal?
-   (rotate (dir 1 0 0) (dir 0 1 0) 90)
-   (dir 0 0 1)))
+
