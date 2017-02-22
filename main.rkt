@@ -356,6 +356,26 @@
                   (l-system 1 :::start :::finish '#hash() (X) (B -> C X))
                   (l-system 2 :::start :::finish  '#hash() (A) (A -> A A) (B -> B A))))
 
+  (check-equal? (parse-fronts/1 (open-input-string
+                                 (string-append
+                                  "## axiom ##\n"
+                                  "A\n"
+                                  "\n"
+                                  "## rules ##\n"
+                                  "A -> A\n"
+                                  "          B\n"
+                                  "B ->\n"
+                                  " A\n"
+                                  "\n"
+                                  "## variables ##\n"
+                                  "n=4"))
+                                #f)
+                '((l-system 0 :::start :::finish
+                            '#hash((n . 4))
+                            (A)
+                            (A -> A B)
+                            (B -> A))))
+
   (check-equal? (parse-fronts/2 (open-input-string
                                  (string-append
                                   "# axiom #\nA\n# rules #\nA->AA\n"
