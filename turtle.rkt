@@ -1,6 +1,7 @@
 #lang racket/base
 (provide (all-defined-out))
 (require graphics/value-turtles
+         pict
          (prefix-in : racket/base))
 
 (define (F turtles variables) (cons (draw 2 (car turtles)) (cdr turtles)))
@@ -15,4 +16,5 @@
   (define w (hash-ref variables 'w 500))
   (define h (hash-ref variables 'h 500))
   (cons (move (/ h -2) (turn 90 (move (/ w 10) (turtles w h)))) '()))
-(define (finish turtles variables) (turtles-pict (car turtles)))
+(define (finish turtles variables)
+  (scale-to-fit (turtles-pict (car turtles)) 300 300))
