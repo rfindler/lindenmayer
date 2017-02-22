@@ -8,7 +8,9 @@
            syntax/readerr
            racket/match
            racket/syntax
-           "lexer.rkt")
+           "lexer.rkt"
+           "structs.rkt"
+           "syntax-properties.rkt")
 
   (define (wrap-read-syntax _read-syntax)
     (define double-hyphen (bytes-ref #"=" 0))
@@ -76,6 +78,10 @@
     (match-lambda**
      #;[('color-lexer default)
       (wrap-lexer (_get-info 'color-lexer default))]
+     ;; this doesn't work (yet) for refactorings using syntax-properties
+     #;[('drracket:keystrokes default)
+      (cons (list new-nt-keybinding do-make-new-non-terminal)
+            (default 'drracket:keystrokes))]
      [(sym def) (_get-info sym def)]))
 
 
@@ -95,7 +101,9 @@
         [(exn? sections) (values sections '())]
         [else
          (define l-system
-           (datum->syntax
+           (annotate-rule-info
+            (hash-ref sections 'rules)
+            (datum->syntax
             #f
             `(l-system
               ,n :::start :::finish
@@ -105,12 +113,12 @@
               ,(for/list ([c (in-list (hash-ref sections 'axiom))])
                  c)
               ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
-                  `(,(car (list-ref pr 0))
+                  `(,(rule-nt pr)
                     ->
-                    ,@(for/list ([c (in-list (list-ref pr 1))])
-                        c))))))
+                    ,@(for/list ([c (in-list (rule-rhs pr))])
+                        c)))))))
          (for ([pr (in-list (hash-ref sections 'rules))])
-           (hash-set! non-terminals (syntax-e (car (list-ref pr 0))) #t))
+           (hash-set! non-terminals (syntax-e (rule-nt pr)) #t))
          (cond [eof? (values (reverse (cons l-system l-systems))
                              (sort (hash-map non-terminals (λ (x y) x))
                                    symbol<?))]
@@ -177,12 +185,12 @@
                                 (regexp-split #rx"→" (remove-whitespace l))))
               (unless (= 2 (length split))
                 (failed (format "expected only one `~a'" (if arr1? "->" "→"))))
-              (define stxs (process-rule l name line col pos failed))
-              (loop current-section stxs)]
+              (define the-rule (process-rule l name line col pos failed))
+              (loop current-section the-rule)]
              [else ;; continuation of a pending rule
-              (match-define (list rule-nt rule-current-body) pending-rule)
+              (match-define (rule rule-nt rule-current-body) pending-rule)
               (define rule-continued-body (process-axiom l name line col pos))
-              (loop current-section (list rule-nt (append rule-current-body rule-continued-body)))])]
+              (loop current-section (rule rule-nt (append rule-current-body rule-continued-body)))])]
           [(equal? current-section 'variables)
            (handle-pending-rule)
            (unless (regexp-match? #rx"=" l)
@@ -222,7 +230,9 @@
                     (if arr1? (maybe-add1 (maybe-add1 new-pos)) (maybe-add1 new-pos))))
     (when (empty? left)
       (failed "expected the name of a non-terminal"))
-    (list left right))
+    (when (> (length left) 1)
+      (failed "expected exactly 1 non-terminal name"))
+    (rule (first left) right))
 
   (define (process-port sp name line col pos [end? (λ (c p) (eof-object? c))])
     (let loop ([c (read-char sp)]
