@@ -1,12 +1,9 @@
 #lang lindenmayer racket
 ## axiom ##
-A
+X
 
 ## rules ##
-A → B - F + C F C + F - D & F ∧ D - F + & & C F C + F + B / /
-B → A & F ∧ C F B ∧ F ∧ D ∧ ∧ - F - D ∧ | F ∧ B | F C ∧ F ∧ A / /
-C → | D ∧ | F ∧ B - F + C ∧ F ∧ A & & F A & F ∧ C + F + B ∧ F ∧ D / /
-D → | C F B - F + B | F A & F ∧ A & & F B - F + B | F C / /
+X → ^ < X F ^ < X F X - F ^ > > X F X & F + > > X F X - F > X - >
 
 ## variables ##
 n=2
@@ -24,30 +21,26 @@ h=250
 ;; turn left
 (define (+ state variables)
   (define δ (hash-ref variables 'δ))
-  (cons (yaw (first state) δ) state))
+  (cons (yaw (first state) δ) (rest state)))
 ;; turn right
 (define (- state variables)
   (define δ (hash-ref variables 'δ))
-  (cons (yaw (first state) (r:- δ)) state))
+  (cons (yaw (first state) (r:- δ)) (rest state)))
 ;; pitch down
 (define (& state variables)
   (define δ (hash-ref variables 'δ))
-  (cons (pitch (first state) δ) state))
+  (cons (pitch (first state) δ) (rest state)))
 ;; pitch up
-(define (∧ state variables) (void)
+(define (^ state variables) (void)
   (define δ (hash-ref variables 'δ))
-  (cons (pitch (first state) (r:- δ)) state))
+  (cons (pitch (first state) (r:- δ)) (rest state)))
 ;; roll right
-(define (/ state variables)
+(define (< state variables)
   (define δ (hash-ref variables 'δ))
-  (cons (roll (first state) δ) state))
-(define (\\ state variables)
+  (cons (roll (first state) δ) (rest state)))
+(define (> state variables)
   (define δ (hash-ref variables 'δ))
-  (cons (roll (first state) (r:- δ)) state))
-;; reverse
-(define (\| state variables)
-  (match-define (turtle pos dir up) (first state))
-  (cons (yaw (first state) 180) state))
+  (cons (roll (first state) (r:- δ)) (rest state)))
 
 ;; move
 (define (F state variables)
@@ -55,10 +48,7 @@ h=250
   (define pos* (dir+ pos dir))
   (cons (make-turtle pos* dir up) state))
 
-(define (A state variables) state)
-(define (B state variables) state)
-(define (C state variables) state)
-(define (D state variables) state)
+(define (X state variables) state)
 
 
 (define (start variables)
