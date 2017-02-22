@@ -119,7 +119,7 @@
     (define-values (start-line start-col start-pos) (port-next-location port))
     (define sections (make-hash))
     (with-handlers ([exn:fail:read? (λ (x) (values x #t))])
-      (let loop ([current-section #f])
+      (let loop ([current-section #f] [pending-rule #f])
         (define (update-section nv) (hash-set! sections current-section nv))
         (define (section-value default) (hash-ref sections current-section default))
         (define-values (line col pos) (port-next-location port))
@@ -128,6 +128,9 @@
         (define (failed msg) (raise-read-error msg name line col pos (- after-pos pos)))
         (define (l-system-end? l) (regexp-match? #rx"^ *---+ *$" l))
         (define (input-end? l) (or (eof-object? l) (regexp-match? #rx"^ *===+ *$" l)))
+        (define (handle-pending-rule)
+          (when pending-rule
+            (update-section (cons pending-rule (section-value '())))))
         (cond
           [(or (input-end? l) (l-system-end? l))
            (for ([sec (in-list mandatory-sections)])
@@ -137,8 +140,11 @@
                 name start-line start-col start-pos (- after-pos start-pos))))
            (hash-set! sections 'rules (reverse (hash-ref sections 'rules)))
            (values sections (input-end? l))]
-          [(blank-line? l) (loop current-section)]
+          [(blank-line? l)
+           (handle-pending-rule)
+           (loop current-section #f)]
           [(regexp-match #rx"#" l)
+           (handle-pending-rule)
            (define m (regexp-match #rx"^ *(#+) +([a-zA-Z][a-zA-Z ]*[a-zA-Z]) +(#*) *$" l))
            (unless m (failed "found a `#' but could not parse a section line"))
            (define first-hashes (list-ref m 1))
@@ -150,25 +156,35 @@
              (failed (format "unknown section name ~a; expected one of ~a"
                              section-name
                              section-names-str)))
-           (loop section-name)]
+           (loop section-name #f)]
           [(equal? current-section 'axiom)
+           (handle-pending-rule)
            (when (section-value #f)
              (failed "found a second axiom"))
            (update-section (process-axiom l name line col pos))
-           (loop current-section)]
+           (loop current-section #f)]
           [(equal? current-section 'rules)
            (define arr1? (regexp-match? #rx"->" l))
-           (unless (or arr1? (regexp-match #rx"→" l))
-             (failed "expected either `->' or `→' in the rule"))
-           (define split (if arr1?
-                             (regexp-split #rx"->" (remove-whitespace l))
-                             (regexp-split #rx"→" (remove-whitespace l))))
-           (unless (= 2 (length split))
-             (failed (format "expected only one `~a'" (if arr1? "->" "→"))))
-           (define stxs (process-rule l name line col pos))
-           (update-section (cons stxs (section-value '())))
-           (loop current-section)]
+           (define arr2? (regexp-match #rx"→" l))
+           (define pending? (and pending-rule (regexp-match? #px"^\\s+" l)))
+           (unless (or arr1?  arr2? pending?)
+             (failed "expected either `->' or `→' in the rule or the continuation of another rule"))
+           (cond
+             [(or arr1? arr2?) ;; this is a new rule
+              (handle-pending-rule)
+              (define split (if arr1?
+                                (regexp-split #rx"->" (remove-whitespace l))
+                                (regexp-split #rx"→" (remove-whitespace l))))
+              (unless (= 2 (length split))
+                (failed (format "expected only one `~a'" (if arr1? "->" "→"))))
+              (define stxs (process-rule l name line col pos failed))
+              (loop current-section stxs)]
+             [else ;; continuation of a pending rule
+              (match-define (list rule-nt rule-current-body) pending-rule)
+              (define rule-continued-body (process-axiom l name line col pos))
+              (loop current-section (list rule-nt (append rule-current-body rule-continued-body)))])]
           [(equal? current-section 'variables)
+           (handle-pending-rule)
            (unless (regexp-match? #rx"=" l)
              (failed "expected either `=' in the variable assignment"))
            (define split (regexp-split #rx"=" (remove-whitespace l)))
@@ -176,7 +192,7 @@
            (define key (string->symbol (list-ref split 0)))
            (define val (read (open-input-string (list-ref split 1)))) ;; TODO: better error checking
            (update-section (cons (list key val) (section-value '())))
-           (loop current-section)]
+           (loop current-section #f)]
           [else (failed (format "internal error.1 ~s ~s"
                                 current-section
                                 l))]))))
@@ -186,7 +202,7 @@
     (define-values (result _) (process-port (open-input-string str) name line col pos))
     result)
 
-  (define (process-rule str name line col pos)
+  (define (process-rule str name line col pos failed)
     (define arr1? (regexp-match? #rx"->" str))
     (define (end? c p)
       (if arr1?
@@ -204,6 +220,8 @@
                     new-line
                     (if arr1? (maybe-add1 (maybe-add1 new-col)) (maybe-add1 new-col))
                     (if arr1? (maybe-add1 (maybe-add1 new-pos)) (maybe-add1 new-pos))))
+    (when (empty? left)
+      (failed "expected the name of a non-terminal"))
     (list left right))
 
   (define (process-port sp name line col pos [end? (λ (c p) (eof-object? c))])
