@@ -13,12 +13,12 @@
           (values text type paren start end 0 mode))))
   (make-lexer inner))
 
-(define (post-hyph0 mode)
-  (post-hyph #f))
+(define (post-hyph0 mode data)
+  (post-hyph #f #f))
 
-(struct post-hyph (mode) #:transparent)
-(struct errstate (mode) #:transparent)
-(struct in-param (mode) #:transparent)
+(struct post-hyph (mode data) #:transparent)
+(struct errstate (mode data) #:transparent)
+(struct in-param (mode data) #:transparent)
 
 (define errlabel 'errlabel)
 (define errresum 'errresum)
@@ -179,7 +179,8 @@
        (call-with-values
         (λ () (inner port offset (post-hyph-mode state)))
         (λ (lexeme type data new-token-start new-token-end backup-delta new-mode)
-          (values lexeme type data new-token-start new-token-end backup-delta (post-hyph new-mode))))]
+          (values lexeme type data new-token-start new-token-end backup-delta
+                  (post-hyph new-mode #f))))]
       [(in-param? state)
        (call-with-values
         (λ () (lex port offset parlabel))
@@ -219,10 +220,10 @@
           (define new-state
             (cond
               [(procedure? to-state)
-               (to-state state)]
+               (to-state state substrs)]
               [else to-state]))
           (make-token-values matched-str (rule-output rule) new-state)])]
-      [else (lex port offset (errstate state))]))
+      [else (lex port offset (errstate state #f))]))
   lex)
 
 (module+ test
@@ -249,10 +250,10 @@
   (check-equal? (test-lexer 'rules-lhs " ---\n")  `((rules-lhs comment " ---\n") any-new))
   (check-equal? (test-lexer 'vars-lhs "--- \t\n") `((vars-lhs  comment "--- \t\n") any-new))
 
-  (check-equal? (test-lexer 'any-new "===\n")     `((any-new   comment "===\n") ,(post-hyph #f)))
-  (check-equal? (test-lexer 'axiom-new "====\n")  `((axiom-new comment "====\n") ,(post-hyph #f)))
-  (check-equal? (test-lexer 'rules-lhs " ===\n")  `((rules-lhs comment " ===\n") ,(post-hyph #f)))
-  (check-equal? (test-lexer 'vars-lhs "=== \t\n") `((vars-lhs  comment "=== \t\n") ,(post-hyph #f)))
+  (check-equal? (test-lexer 'any-new "===\n")     `((any-new   comment "===\n") ,(post-hyph #f #f)))
+  (check-equal? (test-lexer 'axiom-new "====\n")  `((axiom-new comment "====\n") ,(post-hyph #f #f)))
+  (check-equal? (test-lexer 'rules-lhs " ===\n")  `((rules-lhs comment " ===\n") ,(post-hyph #f #f)))
+  (check-equal? (test-lexer 'vars-lhs "=== \t\n") `((vars-lhs  comment "=== \t\n") ,(post-hyph #f #f)))
 
   (check-equal?
    (test-lexer 'any-new "#lang lindenmayer racket\n \t \n")
@@ -310,12 +311,12 @@
      axiom-new))
 
   (check-equal?
-   (test-lexer (errstate 'start-axm) ". !\nA")
-   `((,(errstate 'start-axm) error            ".")
-     (,(errstate 'start-axm) white-space      " ")
-     (start-axm              error            "!")
-     (,(errstate 'start-axm) white-space      "\n")
-     (axiom-new              symbol           "A")
+   (test-lexer (errstate 'start-axm '?) ". !\nA")
+   `((,(errstate 'start-axm '?) error            ".")
+     (,(errstate 'start-axm '?) white-space      " ")
+     (start-axm                 error            "!")
+     (,(errstate 'start-axm #f) white-space      "\n")
+     (axiom-new                 symbol           "A")
      axiom-axm))
 
   (for ([state (in-list '(axiom-new rules-lhs rules-rhs vars-lhs))])
@@ -328,13 +329,13 @@
         ['vars-rhs  'vars-rhs]))
     (check-equal?
      (test-lexer state "R(3+x *5,)")
-     `((,state                 symbol           "R")
-       (,next-state            parenthesis      "(")
-       (,(in-param next-state) constant         "3")
-       (,(in-param next-state) symbol           "+x")
-       (,(in-param next-state) white-space      " ")
-       (,(in-param next-state) symbol           "*")
-       (,(in-param next-state) constant         "5")
-       (,(in-param next-state) parenthesis      ",")
-       (,(in-param next-state) parenthesis      ")")
+     `((,state                     symbol           "R")
+       (,next-state                parenthesis      "(")
+       (,(in-param next-state '()) constant         "3")
+       (,(in-param next-state '()) symbol           "+x")
+       (,(in-param next-state '()) white-space      " ")
+       (,(in-param next-state '()) symbol           "*")
+       (,(in-param next-state '()) constant         "5")
+       (,(in-param next-state '()) parenthesis      ",")
+       (,(in-param next-state '()) parenthesis      ")")
        ,next-state))))
