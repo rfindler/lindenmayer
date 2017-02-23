@@ -211,8 +211,7 @@
     (define the-port (open-input-string str))
     (port-count-lines! the-port)
     (set-port-next-location! the-port line col pos)
-    (define-values (result _) (process-port the-port name))
-    result)
+    (process-port the-port name))
 
   (define (process-rule str name line col pos failed)
     (define arr1? (regexp-match? #rx"->" str))
@@ -226,8 +225,8 @@
     (define the-port (open-input-string str))
     (port-count-lines! the-port)
     (set-port-next-location! the-port line col pos)
-    (match-define-values (left _) (process-port the-port name end?))
-    (define-values (right _) (process-port the-port name))
+    (define left (process-port the-port name end?))
+    (define right (process-port the-port name))
     (when (empty? left)
       (failed "expected the name of a non-terminal"))
     (when (> (length left) 1)
@@ -239,7 +238,7 @@
       (define-values (line col pos) (port-next-location sp))
       (define c (read-char sp))
       (cond
-        [(end? c sp) (values (reverse stxs) '(list line col pos))]
+        [(end? c sp) (reverse stxs)]
         [(char-whitespace? c)
          ;; skip whitespace, can assume no newlines
          (loop stxs)]
