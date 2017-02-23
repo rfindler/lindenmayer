@@ -23,13 +23,14 @@ h=1000
 
 (define leaf
   (let ()
-    (define es 1)
+    (define es 0.8)
+    (define w/2 .28)
     (define start (vertex (pos 0 0 0)))
     (define end (vertex (pos (r:+ es 1) 0 0)))
-    (define q1 (vertex (pos 1/3 -1/3 0)))
-    (define q2 (vertex (pos 1/3 1/3 0)))
-    (define q3 (vertex (pos (r:+ es 2/3) 1/3 0)))
-    (define q4 (vertex (pos (r:+ es 2/3) -1/3 0)))
+    (define q1 (vertex (pos 1/3 (r:- w/2) 0)))
+    (define q2 (vertex (pos 1/3 w/2 0)))
+    (define q3 (vertex (pos (r:+ es 2/3) w/2 0)))
+    (define q4 (vertex (pos (r:+ es 2/3) (r:- w/2) 0)))
     (with-color
      (rgba "green")
      (combine
