@@ -91,8 +91,9 @@
    ║ rules-lhs ║                                    ║             ║             ║           ║
    ║ vars-lhs  ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
-   ║ axiom-new ║                                    ║             ║             ║           ║
-   ║ rules-lhs ║ #rx"^#+[ \t]*"                     ║             ║ start       ║ #f        ║
+   ║ any-new   ║                                    ║             ║             ║           ║
+   ║ axiom-new ║ #rx"^#+[ \t]*"                     ║             ║             ║           ║
+   ║ rules-lhs ║                                    ║             ║ start       ║ #f        ║
    ║ vars-lhs  ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║                                    ║             ║             ║           ║
@@ -100,17 +101,15 @@
    ║ rules-rhs ║                                    ║             ║             ║           ║
    ║ vars-equ  ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ axiom-new ║                                    ║             ║ axiom-new   ║           ║
+   ║ any-new   ║                                    ║             ║ any-new     ║           ║
    ╠═══════════╣                                    ║             ╠═════════════╣           ║
-   ║ rules-lhs ║ #px"^\\s+"                         ║ white-space ║ rules-lhs   ║           ║
+   ║ axiom-new ║                                    ║             ║ axiom-new   ║           ║
+   ╠═══════════╣ #px"^\\s+"                         ║ white-space ╠═════════════╣           ║
+   ║ rules-lhs ║                                    ║             ║ rules-lhs   ║           ║
    ╠═══════════╣                                    ║             ╠═════════════╣           ║
    ║ vars-lhs  ║                                    ║             ║ vars-lhs    ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ any-new   ║ #rx"^(?!#lang)#+[ \t]*"            ║ comment     ║ start       ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ any-new   ║ #rx"^#lang[^\n]*(\n|$)"            ║ other       ║ any-new     ║ any-new   ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ any-new   ║ #px"^\\s+"                         ║ white-space ║ any-new     ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
    ║ start     ║ #rx"^axiom[ \t]*"                  ║             ║ start-axm   ║           ║
    ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
@@ -163,13 +162,7 @@
     ;; (or/c bytes syntax) natural mode -> result for the lexer
     (define (make-token-values token type mode)
       (define-values (line2 col2 pos2) (port-next-location port))
-      (values token
-              type
-              #f
-              pos
-              pos2
-              0
-              mode))
+      (values token type #f pos pos2 0 mode))
     (define state (or mode 'any-new))
     #;(printf "lexer:    ~a ~s\n" state (peek-string 20 0 port))
     (cond
