@@ -136,14 +136,17 @@
 
 
 (define pipe-cache (make-hash))
-(define (make-pipe width color)
+(define (make-pipe length width color)
   (define c (or color (first (current-texturing))))
   (hash-ref!
    pipe-cache
-   (list* width
-          c
-          (second (current-texturing)))
+   (list*
+    length
+    width
+    c
+    (second (current-texturing)))
    (lambda ()
+     (define line-length length)
      (define line-size (max width 1/64))
      (define ls/2 (/ line-size 2))
      (with-color c
@@ -173,15 +176,15 @@
                 ([start (in-list pts)]
                  [end (in-list (rest pts))])
         (match-define (point d w c) start)
-        (define pipe (make-pipe w (lookup-color colors c)))
-        (combine p (dirs->pipe d (point-dir end) pipe)))))
+        (combine p (dirs->pipe d (point-dir end) w (lookup-color colors c))))))
 
 (define (lookup-color v c)
   (and v (vector-ref v (modulo c (vector-length v)))))
 
 ;;;; helpers
-(define (dirs->pipe start end pipe)
+(define (dirs->pipe start end w c)
   (define dir (dir- end start))
+  (define pipe (make-pipe (dir-dist dir) w c))
   (shift-pict start dir pipe))
 
 (define (shift-pict point dir pict)
