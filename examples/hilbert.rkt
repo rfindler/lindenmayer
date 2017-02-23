@@ -1,9 +1,12 @@
 #lang lindenmayer racket
 ## axiom ##
-X
+A
 
 ## rules ##
-X → ^ < X F ^ < X F X - F ^ > > X F X & F + > > X F X - F > X - >
+A → B-F+CFC+F-D&F∧D-F+&&CFC+F+B//
+B → A&F∧CFB∧F∧D∧∧-F-D∧|F∧B|FC∧F∧A//
+C → |D∧|F∧B-F+C∧F∧A&&FA&F∧C+F+B∧F∧D//
+D → |CFB-F+B|FA&F∧A&&FB-F+B|FC//
 
 ## variables ##
 n=3
@@ -31,21 +34,26 @@ h=250
   (define δ (hash-ref variables 'δ))
   (pitch state δ))
 ;; pitch up
-(define (^ state variables) (void)
+(define (∧ state variables) (void)
   (define δ (hash-ref variables 'δ))
   (pitch state (r:- δ)))
 ;; roll right
-(define (< state variables)
+(define (\\ state variables)
   (define δ (hash-ref variables 'δ))
   (roll state δ))
-(define (> state variables)
+(define (/ state variables)
   (define δ (hash-ref variables 'δ))
   (roll state (r:- δ)))
+(define (\| state variables)
+(yaw state 180))
 
 ;; move
 (define (F state variables) (move state 1))
 
-(define (X state variables) state)
+(define (A state variables) state)
+(define (B state variables) state)
+(define (C state variables) state)
+(define (D state variables) state)
 
 
 (define (start variables)
