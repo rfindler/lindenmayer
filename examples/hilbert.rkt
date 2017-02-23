@@ -16,42 +16,49 @@ h=250
 (provide (all-defined-out))
 (require "3d-turtle.rkt"
          (prefix-in r: racket)
-         (only-in pict3d dir-scale dir+ zero-dir +x +z))
+         (except-in pict3d move))
 
 ;; turn left
 (define (+ state variables)
   (define δ (hash-ref variables 'δ))
-  (cons (yaw (first state) δ) (rest state)))
+  (yaw state δ))
 ;; turn right
 (define (- state variables)
   (define δ (hash-ref variables 'δ))
-  (cons (yaw (first state) (r:- δ)) (rest state)))
+  (yaw state (r:- δ)))
 ;; pitch down
 (define (& state variables)
   (define δ (hash-ref variables 'δ))
-  (cons (pitch (first state) δ) (rest state)))
+  (pitch state δ))
 ;; pitch up
 (define (^ state variables) (void)
   (define δ (hash-ref variables 'δ))
-  (cons (pitch (first state) (r:- δ)) (rest state)))
+  (pitch state (r:- δ)))
 ;; roll right
 (define (< state variables)
   (define δ (hash-ref variables 'δ))
-  (cons (roll (first state) δ) (rest state)))
+  (roll state δ))
 (define (> state variables)
   (define δ (hash-ref variables 'δ))
-  (cons (roll (first state) (r:- δ)) (rest state)))
+  (roll state (r:- δ)))
 
 ;; move
-(define (F state variables)
-  (match-define (turtle pos dir up) (first state))
-  (define pos* (dir+ pos dir))
-  (cons (make-turtle pos* dir up) state))
+(define (F state variables) (move state 1))
 
 (define (X state variables) state)
 
 
 (define (start variables)
-  (list (turtle zero-dir +x +z)))
+  (make-turtle zero-dir +x +z))
+
+(define camera (basis 'camera (point-at (pos 11 2 -0.5) (pos 3 3 -3) #:up +z)))
 (define (finish turtles variables)
-  (draw turtles))
+  (combine camera (draw turtles))
+  #;
+  (parameterize ([current-pict3d-ambient (emitted "azure" 2)]
+                 [current-pict3d-background  (rgba "white" 0)]
+                 )
+    (pict3d->bitmap
+     (freeze (combine camera (sphere origin 1/2) #;(draw turtles)))
+    (hash-ref variables 'w)
+    (hash-ref variables 'h))))

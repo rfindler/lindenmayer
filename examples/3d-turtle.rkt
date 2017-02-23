@@ -1,7 +1,52 @@
 #lang debug racket
-(provide (all-defined-out))
+(provide
+ (rename-out
+  [out:make-turtle make-turtle]
+  [out:move move])
+ yaw
+ pitch
+ roll
+ save
+ restore
+ draw)
 (require pict3d (prefix-in 3d: pict3d))
 (module+ test (require rackunit))
+
+(define (out:make-turtle start dir up)
+  (define turtle*
+    (make-turtle
+     start
+     (dir-normalize dir)
+     (dir-normalize up)))
+  (turtle-state turtle* empty (list start) empty))
+
+(struct turtle-state (turtle stack points points-stack))
+
+(define (yaw t φ)
+  (match-define (turtle-state tur s p ps) t)
+  (turtle-state (turtle-yaw tur φ) s p ps))
+(define (pitch t φ)
+  (match-define (turtle-state tur s p ps) t)
+  (turtle-state (turtle-pitch tur φ) s p ps))
+(define (roll t φ)
+  (match-define (turtle-state tur s p ps) t)
+  (turtle-state (turtle-roll tur φ) s p ps))
+(define (out:move t d)
+  (match-define (turtle-state tur s p ps) t)
+  (define t* (turtle-move tur d))
+  (turtle-state t* s (cons (turtle-pos t*) p) ps))
+(define (save t)
+  (match-define (turtle-state tur s p ps) t)
+  (turtle-state tur (cons tur s) empty (cons p ps)))
+(define (restore t)
+  (match-define (turtle-state _ (cons tur s) p ps) t)
+  (turtle-state tur s empty (cons p ps)))
+
+(define (draw t)
+  (match-define (turtle-state _ _ points points-stack) t)
+  (for/fold ([p empty-pict3d])
+            ([points (in-list (cons points points-stack))])
+    (combine p (draw-points points))))
 
 (define (unit-dir? d)
   (dir=? d (dir-normalize d)))
@@ -39,16 +84,14 @@
       (dir (- ls/2) (- ls/2) 0))
      90))))
 
-(define (draw turtles)
+(define (draw-points pts)
   (for/fold ([p empty-pict3d])
-            ([start (in-list turtles)]
-             [end (in-list (rest turtles))])
-    (combine p (turtles->pipe start end))))
+            ([start (in-list pts)]
+             [end (in-list (rest pts))])
+    (combine p (dirs->pipe start end))))
 
 ;;;; helpers
-(define (turtles->pipe start-t end-t)
-  (match-define (turtle start _  _) start-t)
-  (match-define (turtle end _ _) end-t)
+(define (dirs->pipe start end)
   (define dir (dir- end start))
   (define-values (yaw pitch) (dir->angles dir))
   (define crossdir (dir-cross +x dir))
@@ -70,7 +113,7 @@
   (and (=-ish? (dir-dx d1) (dir-dx d2))
        (=-ish? (dir-dy d1) (dir-dy d2))
        (=-ish? (dir-dz d1) (dir-dz d2))))
-        
+
 (define (zero-dir? axis)
   (dir=? axis zero-dir))
 
@@ -82,13 +125,13 @@
   (> threshold (- x y) (- threshold)))
 
 ;; rotate the turtle left/right by φ degrees
-(define (yaw t φ)
+(define (turtle-yaw t φ)
   (match-define (turtle pos dir up) t)
   (define dir* (dir-normalize (rotate dir up φ)))
   (make-turtle pos dir* up))
 
 ;; pitch the turtle up or down φ degrees
-(define (pitch t φ)
+(define (turtle-pitch t φ)
   (match-define (turtle pos dir up) t)
   (define axis (dir-cross dir up))
   (define dir* (dir-normalize (rotate dir axis φ)))
@@ -96,10 +139,15 @@
   (make-turtle pos dir* up*))
 
 ;; pitch the turtle by φ degrees
-(define (roll t φ)
+(define (turtle-roll t φ)
   (match-define (turtle pos dir up) t)
   (define up* (dir-normalize (rotate up dir φ)))
   (make-turtle pos dir up*))
+
+(define (turtle-move t d)
+  (match-define (turtle pos dir up) t)
+  (define pos* (dir+ pos (dir-scale dir d)))
+  (make-turtle pos* dir up))
 
 ;; Dir Dir Degrees -> Dir
 ;; rotate v1 around v2 by θ
@@ -116,5 +164,3 @@
     (dir+
      (dir-scale (dir-cross k v) (sin θ))
      (dir-scale k (* (dir-dot k v) (- 1 (cos θ))))))))
-
-
