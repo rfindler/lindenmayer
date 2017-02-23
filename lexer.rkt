@@ -13,16 +13,18 @@
           (values text type paren start end 0 mode))))
   (make-lexer inner))
 
-(struct post-hyph (mode) #:transparent)
-
 (define (post-hyph0 mode)
   (post-hyph #f))
 
+(struct post-hyph (mode) #:transparent)
 (struct errstate (mode) #:transparent)
+(struct in-param (mode) #:transparent)
 
 (define errlabel 'errlabel)
 (define errresum 'errresum)
 (define errnewln 'errnewln)
+(define parlabel 'parlabel)
+(define paramend 'paramend)
 
 (struct rule (match output to-state reset) #:transparent)
 
@@ -55,7 +57,7 @@
 ;; transition for arbitrary input string.
 ;;
 ;; The current error recovery strategy tries to re-lex with the previous state
-;; at every spaces (and fall back to the 'rule-reset' state of the original state
+;; after every spaces (and falls back to the 'rule-reset' state of the original state
 ;; when hitting a new line). Thus, when designing states, it's better not to
 ;; have a token that spans across spaces.
 (define lexer-fsm
@@ -69,6 +71,16 @@
    ╠═══════════╬════════════════════════════════════╣ white-space ╠═════════════╣           ║
    ║ ,errlabel ║ #px"^\n\\s*"                       ║             ║ ,errnewln   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
+   ║ ,parlabel ║ #px"^\\s+"                         ║ white-space ║ ,parlabel   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ ,parlabel ║ #rx"^,"                            ║             ║ ,parlabel   ║           ║
+   ╠═══════════╬════════════════════════════════════╣ parenthesis ╠═════════════╣           ║
+   ║ ,parlabel ║ #rx"^\\)"                          ║             ║ ,paramend   ║ ,parlabel ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ ,parlabel ║ #px"^\\d+"                         ║ constant    ║ ,parlabel   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ ,parlabel ║ #px"^[^,)\\d \t\n]+"               ║ symbol      ║ ,parlabel   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
    ║ any-new   ║                                    ║             ║             ║           ║
    ║ axiom-new ║ #rx"^[ \t]*===+[ \t]*(\n|$)"       ║             ║ ,post-hyph0 ║           ║
    ║ rules-lhs ║                                    ║             ║             ║           ║
@@ -78,6 +90,11 @@
    ║ axiom-new ║ #rx"^[ \t]*---+[ \t]*(\n|$)"       ║             ║ any-new     ║           ║
    ║ rules-lhs ║                                    ║             ║             ║           ║
    ║ vars-lhs  ║                                    ║             ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
+   ║ axiom-axm ║                                    ║             ║             ║           ║
+   ║ rules-arr ║ #rx"^\\("                          ║ parenthesis ║ ,in-param   ║ #f        ║
+   ║ rules-rhs ║                                    ║             ║             ║           ║
+   ║ vars-equ  ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
    ║ any-new   ║ #rx"^(?!#lang)#+[ \t]*"            ║ comment     ║ start       ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
@@ -101,11 +118,11 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-new ║ #px"^\\s+"                         ║ white-space ║ axiom-new   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ axiom-new ║ #px"^[^\\s#]+"                     ║ symbol      ║ axiom-axm   ║           ║
+   ║ axiom-new ║ #px"^[^\\s#(]+"                    ║ symbol      ║ axiom-axm   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣ axiom-new ║
    ║ axiom-axm ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╣ axiom-axm   ║           ║
-   ║ axiom-axm ║ #px"^[^\\s#]+"                     ║ symbol      ║             ║           ║
+   ║ axiom-axm ║ #px"^[^\\s#(]+"                    ║ symbol      ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
@@ -113,17 +130,15 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-lhs ║ #rx"^[ \t]+"                       ║ white-space ║ rules-lhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-lhs ║ #rx"^((?!->|→)[^ \t\n])+"          ║ symbol      ║ rules-arr   ║           ║
+   ║ rules-lhs ║ #rx"^((?!->|→)[^ \t\n(])+"         ║ symbol      ║ rules-arr   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-arr ║ #rx"^[ \t]+"                       ║ white-space ║ rules-arr   ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-arr ║ #rx"^->"                           ║             ║             ║ rules-lhs ║
-   ╠═══════════╬════════════════════════════════════╣ parenthesis ║ rules-rhs   ║           ║
-   ║ rules-arr ║ #rx"^→"                            ║             ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣ rules-lhs ║
+   ║ rules-arr ║ #rx"^(->|→)"                       ║ parenthesis ║ rules-rhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-rhs ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╣ rules-rhs   ║           ║
-   ║ rules-rhs ║ #rx"^((?!->|→)[^ \t\n])+"          ║ symbol      ║             ║           ║
+   ║ rules-rhs ║ #rx"^((?!->|→)[^ \t\n(])+"         ║ symbol      ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-rhs ║ #px"^\n\\s*"                       ║ white-space ║ rules-lhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
@@ -131,7 +146,7 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ vars-lhs  ║ #rx"^[ \t]+"                       ║ white-space ║ vars-lhs    ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ vars-lhs  ║ #rx"^[^ \t\n=]+"                   ║ symbol      ║ vars-equ    ║           ║
+   ║ vars-lhs  ║ #rx"^[^ \t\n=(]+"                  ║ symbol      ║ vars-equ    ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ vars-equ  ║ #rx"^[ \t]+"                       ║ white-space ║ vars-equ    ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣ vars-lhs  ║
@@ -167,6 +182,16 @@
         (λ () (inner port offset (post-hyph-mode state)))
         (λ (lexeme type data new-token-start new-token-end backup-delta new-mode)
           (values lexeme type data new-token-start new-token-end backup-delta (post-hyph new-mode))))]
+      [(in-param? state)
+       (call-with-values
+        (λ () (lex port offset parlabel))
+        (λ (lexeme type data new-token-start new-token-end backup-delta new-mode)
+          #;(printf "parlabel: was: ~a, matched: ~s; new mode: ~a\n" state lexeme new-mode)
+          (define wrapped-mode
+            (cond [(equal? new-mode parlabel) state]
+                  [(equal? new-mode paramend) (in-param-mode state)]
+                  [else (raise-result-error 'lindenmayer-lexer "(or/c 'parlabel 'paramend)" new-mode)]))
+          (values lexeme type data new-token-start new-token-end backup-delta wrapped-mode)))]
       [(errstate? state)
        (call-with-values
         (λ () (lex port offset errlabel))
@@ -176,18 +201,23 @@
           (define wrapped-mode
             (cond [(equal? new-mode errlabel) state]
                   [(equal? new-mode errresum) old-state]
-                  [(equal? new-mode errnewln) (rule-reset (first (hash-ref lexer-fsm old-state)))]
-                  [else (raise-result-error 'lindenmayer-lexer "(or/c 'errorlbl 'errorend)" new-mode)]))
+                  [(equal? new-mode errnewln)
+                   (define reset-state (map rule-reset (hash-ref lexer-fsm old-state)))
+                   (first (filter (λ (x) x) reset-state))]
+                  [else (raise-result-error 'lindenmayer-lexer "(or/c 'errlabel 'errresum 'errnewln)" new-mode)]))
           (values lexeme type data new-token-start new-token-end backup-delta wrapped-mode)))]
       [(for/or ([rule (hash-ref lexer-fsm state)])
          (define match-result
            (regexp-match-peek (rule-match rule) port))
+         #;(printf "lexer:                 ~s => ~s / ~s\n"
+                   (rule-match rule) match-result (peek-string 20 0 port))
          (and match-result (cons rule match-result)))
        =>
        (match-lambda
          [(list rule matched-str substrs ...)
           (read-bytes (bytes-length matched-str) port)
           (define to-state (rule-to-state rule))
+          #;(printf "lexer:                 matched ~s; to-state: ~a\n" matched-str to-state)
           (define new-state
             (cond
               [(procedure? to-state)
@@ -288,4 +318,25 @@
      (start-axm              error            "!")
      (,(errstate 'start-axm) white-space      "\n")
      (axiom-new              symbol           "A")
-     axiom-axm)))
+     axiom-axm))
+
+  (for ([state (in-list '(axiom-new rules-lhs rules-rhs vars-lhs))])
+    (define next-state
+      (match state
+        ['axiom-new 'axiom-axm]
+        ['rules-lhs 'rules-arr]
+        ['rules-rhs 'rules-rhs]
+        ['vars-lhs  'vars-equ]
+        ['vars-rhs  'vars-rhs]))
+    (check-equal?
+     (test-lexer state "R(3+x *5,)")
+     `((,state                 symbol           "R")
+       (,next-state            parenthesis      "(")
+       (,(in-param next-state) constant         "3")
+       (,(in-param next-state) symbol           "+x")
+       (,(in-param next-state) white-space      " ")
+       (,(in-param next-state) symbol           "*")
+       (,(in-param next-state) constant         "5")
+       (,(in-param next-state) parenthesis      ",")
+       (,(in-param next-state) parenthesis      ")")
+       ,next-state))))
