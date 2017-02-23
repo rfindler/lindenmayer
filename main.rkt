@@ -208,7 +208,10 @@
                                 l))]))))
 
   (define (process-axiom str name line col pos)
-    (define-values (result _) (process-port (open-input-string str) name line col pos))
+    (define the-port (open-input-string str))
+    (port-count-lines! the-port)
+    (set-port-next-location! the-port line col pos)
+    (define-values (result _) (process-port the-port name))
     result)
 
   (define (process-rule str name line col pos failed)
@@ -221,60 +224,57 @@
                #t)
           (equal? c #\→)))
     (define the-port (open-input-string str))
-    (match-define-values (left (list new-line new-col new-pos))
-      (process-port the-port name line col pos end?))
-    (define-values (right _)
-      (process-port the-port
-                    name
-                    new-line
-                    (if arr1? (maybe-add1 (maybe-add1 new-col)) (maybe-add1 new-col))
-                    (if arr1? (maybe-add1 (maybe-add1 new-pos)) (maybe-add1 new-pos))))
+    (port-count-lines! the-port)
+    (set-port-next-location! the-port line col pos)
+    (match-define-values (left _) (process-port the-port name end?))
+    (define-values (right _) (process-port the-port name))
     (when (empty? left)
       (failed "expected the name of a non-terminal"))
     (when (> (length left) 1)
       (failed "expected exactly 1 non-terminal name"))
     (rule (first left) right))
 
-  (define (process-port sp name line col pos [end? (λ (c p) (eof-object? c))])
-    (let loop ([c (read-char sp)]
-               [line line]
-               [col col]
-               [pos pos]
-               [stxs '()])
-      (define (do-loop stxs)
-        (loop (read-char sp) line (maybe-add1 col) (maybe-add1 pos) stxs))
+  (define (process-port sp name [end? (λ (c p) (eof-object? c))])
+    (let loop ([stxs '()])
+      (define-values (line col pos) (port-next-location sp))
+      (define c (read-char sp))
       (cond
-        [(end? c sp) (values (reverse stxs) (list line col pos))]
+        [(end? c sp) (values (reverse stxs) '(list line col pos))]
         [(char-whitespace? c)
          ;; skip whitespace, can assume no newlines
-         (do-loop stxs)]
+         (loop stxs)]
         [else
-         ;; this character needs to be turned into an identifier
          (define id (to-identifier (string->symbol (string c)) name line col pos))
          (define non-terminal
            (cond
              [(equal? (peek-char sp) #\()
-              (define-values (line col pos) (port-next-location sp))
+              (define-values (args-start-line args-start-col args-start-pos) (port-next-location sp))
               (define stash-arguments-port (open-output-string))
               (let loop ([d 0])
-                (define c (read-char sp))
-                (when (or (eof-object? c) (equal? c #\newline))
+                (define args-c (read-char sp))
+                (when (or (eof-object? args-c) (equal? args-c #\newline))
+                  (define-values (end-line end-col end-pos) (port-next-location sp))
                   (raise-read-error
                    (format "did not find end of parameters to ~a" c)
-                   name line col pos 1))
-                (display c stash-arguments-port)
+                   name line col pos (- end-pos pos)))
+                (display args-c stash-arguments-port)
                 (cond
-                  [(and (equal? c #\)) (= d 1))
+                  [(and (equal? args-c #\)) (= d 1))
                    (void)]
-                  [(equal? c #\)) (loop (- d 1))]
-                  [(equal? c #\() (loop (+ d 1))]
+                  [(equal? args-c #\)) (loop (- d 1))]
+                  [(equal? args-c #\() (loop (+ d 1))]
                   [else (loop d)]))
-              (define arguments-port (open-input-string (get-output-string stash-arguments-port)))
+              (define args-string (get-output-string stash-arguments-port))
+              (define arguments-port (open-input-string args-string))
               (port-count-lines! arguments-port)
-              (set-port-next-location! arguments-port line col pos)
+              (set-port-next-location! arguments-port args-start-line args-start-col args-start-pos)
               (sym id (parse-arguments name arguments-port))]
+             [(equal? c #\))
+              (raise-read-error
+               "close paren with no opening paren"
+               name line col pos 1)]
              [else (sym id '())]))
-         (do-loop (cons non-terminal stxs))])))
+         (loop (cons non-terminal stxs))])))
 
   (define (maybe-add1 n) (and n (add1 n)))
   (define (remove-whitespace l) (regexp-replace* #rx"[\u00A0 \t]" l ""))
