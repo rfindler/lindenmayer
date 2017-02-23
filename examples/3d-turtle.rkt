@@ -1,22 +1,21 @@
-#lang racket
+#lang debug racket
 (provide (all-defined-out))
 (require pict3d (prefix-in 3d: pict3d))
 (module+ test (require rackunit))
 
 (define (unit-dir? d)
-  (equal? d (dir-normalize d)))
-(define (orotho/c v)
-  (lambda (k)
-    (0.001 . > . (abs (dir-dot v k)))))
+  (dir=? d (dir-normalize d)))
+
+(define (ortho? v k)
+    (0.00000001 . > . (abs (dir-dot v k))))
 ;; poor mans non-gimble locking position+rotation
 (struct turtle (pos dir up)
-  #:transparent
-  ;#:extra-constructor-name make-turtle
-  )
+  #:transparent)
 (define/contract (make-turtle pos dir up)
   (->i ([pos dir?]
         [dir unit-dir?]
-        [up (dir) (and/c unit-dir? (orotho/c dir))])
+        [up unit-dir?])
+       #:pre (up dir) (ortho? up dir)
        [result turtle?])
   (turtle pos dir up))
 ;; pos : Pos, di Dir, up:Dir
@@ -67,33 +66,39 @@
         (if (= 180.0 angle) (3d:rotate +z angle) identity-affine)
         (3d:rotate axis angle)))))
 
+(define (dir=? d1 d2)
+  (and (=-ish? (dir-dx d1) (dir-dx d2))
+       (=-ish? (dir-dy d1) (dir-dy d2))
+       (=-ish? (dir-dz d1) (dir-dz d2))))
+        
 (define (zero-dir? axis)
-  (and (zero-ish? (dir-dx axis))
-       (zero-ish? (dir-dy axis))
-       (zero-ish? (dir-dz axis))))
+  (dir=? axis zero-dir))
 
 (define (zero-ish? x)
+  (=-ish? 0 x))
+
+(define (=-ish? x y)
   (define threshold 0.0000001)
-  (> threshold x (- threshold)))
+  (> threshold (- x y) (- threshold)))
 
 ;; rotate the turtle left/right by φ degrees
 (define (yaw t φ)
   (match-define (turtle pos dir up) t)
-  (define dir* (rotate dir up φ))
+  (define dir* (dir-normalize (rotate dir up φ)))
   (make-turtle pos dir* up))
 
 ;; pitch the turtle up or down φ degrees
 (define (pitch t φ)
   (match-define (turtle pos dir up) t)
   (define axis (dir-cross dir up))
-  (define dir* (rotate dir axis φ))
-  (define up* (rotate up axis φ))
+  (define dir* (dir-normalize (rotate dir axis φ)))
+  (define up* (dir-normalize (rotate up axis φ)))
   (make-turtle pos dir* up*))
 
 ;; pitch the turtle by φ degrees
 (define (roll t φ)
   (match-define (turtle pos dir up) t)
-  (define up* (rotate up dir φ))
+  (define up* (dir-normalize (rotate up dir φ)))
   (make-turtle pos dir up*))
 
 ;; Dir Dir Degrees -> Dir

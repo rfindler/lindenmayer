@@ -6,7 +6,7 @@ X
 X → ^ < X F ^ < X F X - F ^ > > X F X & F + > > X F X - F > X - >
 
 ## variables ##
-n=2
+n=3
 δ=90
 w=500
 h=250
