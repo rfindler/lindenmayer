@@ -341,9 +341,8 @@
            (define (:::start variables) (void))
            (define (:::finish val variables) (newline))
            ,@(for/list ([nt (in-list nts)])
-               `(define (,(string->symbol (format ":::~a" nt))
-                         state vars)
-                  (display ',nt)))
+               `(define (,(string->symbol (format ":::~a" nt)) value variables . args)
+                  (default-callbacks ',nt args)))
            ,@front-result))]))
 
   (define (-get-info port source line col position)

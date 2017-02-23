@@ -5,8 +5,22 @@
    syntax/id-table
    racket/dict
    racket/base)
+  racket/match
   "runtime.rkt")
-(provide l-system parametric-l-system)
+(provide l-system parametric-l-system default-callbacks)
+
+(define (default-callbacks name args)
+  (display name)
+  (cond
+    [(pair? args)
+     (display "(")
+     (print (car args))
+     (unless (null? (cdr args))
+       (for ([arg (in-list (cdr args))])
+         (display ",")
+         (print arg)))
+     (display ")")]))
+       
 
 (define-for-syntax all-non-terminals (make-hash))
 
@@ -52,15 +66,29 @@
     #:datum-literals (->)
     [(_ no start finish variables
         ((C:id C-args ...) ...)
-        ((A:id A-args ...) -> (B:id B-args ...) ...) ...)
-     (with-syntax ([(T ...) (find-terminals #'(B ... ...) #'(A ...))])
-       #'(let ([A (container (add-prefix A))] ...
-               [T (container (add-prefix T))] ...)
-           (register-non-terminals no A ...)
-           (run-lindenmayer (container (list C ...))
-                            (get-non-terminals no)
-                            (list (rule no B ...) ...)
-                            start finish variables)))]))
+        ((A:id A-args:id ...) -> (B:id B-args ...) ...) ...)
+     (with-syntax ([((T T-args ...) ...)
+                    (find-terminals/parametric #'((B B-args ...) ... ...)
+                                               #'(A ...))])
+       (with-syntax ([((A/T A/T-args ...) ...) #'((A A-args ...) ... (T T-args ...) ...)])
+         #'(let ()
+             (define variable-x variables)
+             (struct A (A-args ...) #:transparent) ...
+             (struct T (T-args ...) #:transparent) ...
+             (define (parametric-l-system-collect val sofar)
+               (match val
+                 [(A/T A/T-args ...) ((add-prefix A/T) sofar variable-x A/T-args ...)] ...))
+             (define axiom (list (box (C C-args ...)) ...))
+             (define (parametric-l-system-rewrite boxed-sym)
+               (match (unbox boxed-sym)
+                 [(A A-args ...) (set-box! boxed-sym (list (box (B B-args ...)) ...))] ...
+                 [(T T-args ...) (void)] ...))
+             (register-non-terminals no A ...)
+             (run-parametric-lindenmayer
+              axiom
+              parametric-l-system-rewrite
+              parametric-l-system-collect
+              start finish variable-x))))]))
 
 (define-syntax (add-prefix stx)
   (syntax-parse stx
@@ -80,3 +108,56 @@
       (free-id-table-set! result candidate #t)))
   (for/list ([(id _) (in-dict result)])
     id))
+
+(define-for-syntax (find-terminals/parametric candidates non-terminals)
+  (define table (make-free-id-table))
+  (for ([non-terminal (in-list (syntax->list non-terminals))])
+    (free-id-table-set! table non-terminal #t))
+  (define result (make-free-id-table))
+  (for ([candidate (in-list (syntax->list candidates))])
+    (syntax-case candidate ()
+      [(x arg ...)
+       (with-syntax ([(arg-x ...) (generate-temporaries #'(arg ...))])
+         (unless (free-id-table-ref table #'x #f)
+           (free-id-table-set! result #'x #'(x arg-x ...))))]))
+  (for/list ([(id exp) (in-dict result)])
+    exp))
+
+(module+ test
+  (require rackunit)
+
+  (check-equal?
+   (let ()
+     (define (start variables) '())
+     (define (finish lst variables) lst)
+     (define (:::A lst variables val) (cons val lst))
+     (parametric-l-system
+      0
+      start finish (hash 'n 1)
+      ((A 1))
+      ((A x) -> (A (+ x 3)) (A (* x 2)))))
+   (reverse '(4 2)))
+
+  (check-equal?
+   (let ()
+     (define (start variables) '())
+     (define (finish lst variables) lst)
+     (define (:::A lst variables val) (cons val lst))
+     (parametric-l-system
+      0
+      start finish (hash 'n 2)
+      ((A 1))
+      ((A x) -> (A (+ x 3)) (A (* x 2)))))
+   (reverse '(7 8 5 4)))
+
+  (check-equal?
+   (let ()
+     (define (start variables) '())
+     (define (finish lst variables) lst)
+     (define (:::A lst variables val) (cons val lst))
+     (parametric-l-system
+      0
+      start finish (hash 'n 3)
+      ((A 1))
+      ((A x) -> (A (+ x 3)) (A (* x 2)))))
+   (reverse '(10 14 11 16 8 10 7 8))))

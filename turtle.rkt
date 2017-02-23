@@ -4,9 +4,12 @@
          pict
          (prefix-in : racket/base))
 
-(define (F turtles variables) (cons (draw 2 (car turtles)) (cdr turtles)))
-(define (- turtles variables) (cons (turn (:- (hash-ref variables 'θ 90)) (car turtles)) (cdr turtles)))
-(define (+ turtles variables) (cons (turn (hash-ref variables 'θ 90) (car turtles)) (cdr turtles)))
+(define (F turtles variables [length 2] . ignored)
+  (cons (draw length (car turtles)) (cdr turtles)))
+(define (- turtles variables [factor 1] . ignored)
+  (cons (turn (:* factor -1 (hash-ref variables 'θ 90)) (car turtles)) (cdr turtles)))
+(define (+ turtles variables [factor 1] . ignored)
+  (cons (turn (:* factor (hash-ref variables 'θ 90)) (car turtles)) (cdr turtles)))
 (define (|[| turtles variables) (list* (car turtles) (turtle-state (car turtles)) (cdr turtles)))
 (define (|]| turtles variables)
   (cons (restore-turtle-state (car turtles) (cadr turtles))

@@ -1,6 +1,8 @@
 #lang racket
 
-(provide container run-lindenmayer)
+(provide container
+         run-lindenmayer
+         run-parametric-lindenmayer)
 
 #|
 ;; an Exp α is either:
@@ -11,9 +13,11 @@
 ;; content : Exp α
 (struct container (content) #:mutable #:transparent)
 
+(define default-iterations 4)
+
 (define (run-lindenmayer root non-terminals rules start finish variables)
   (define non-terminals-box (box non-terminals))
-  (for ([i (in-range (hash-ref variables 'n 4))])
+  (for ([i (in-range (hash-ref variables 'n default-iterations))])
     (rewrite non-terminals-box rules))
   (render-it root start finish variables))
 
@@ -33,6 +37,29 @@
       [(container? ele) (loop (container-content ele))]
       [(list? ele) (for ([ele (in-list ele)]) (loop ele))]
       [(procedure? ele) (set! current (ele current variables))]))
+  (finish current variables))
+
+(define (run-parametric-lindenmayer axiom rewrite collect start finish variables)
+  (define (rewrite-box b)
+    (define v (unbox b))
+    (cond
+      [(list? v)
+       (rewrite-list v)]
+      [else
+       (rewrite b)]))
+  (define (rewrite-list l)
+    (for ([b (in-list l)])
+      (rewrite-box b)))
+  (for ([i (in-range (hash-ref variables 'n default-iterations))])
+    (rewrite-list axiom))
+
+  (define current (start variables))
+  (define (collect-tree b)
+    (define v (unbox b))
+    (cond
+      [(list? v) (for-each collect-tree v)]
+      [else (set! current (collect v current))]))
+  (collect-tree (box axiom))
   (finish current variables))
 
 (module+ test
