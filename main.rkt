@@ -76,7 +76,7 @@
            (loop 0 line (and col (+ col 1)) (maybe-add1 pos))]))))
   (define (wrap-get-info _get-info)
     (match-lambda**
-     #;[('color-lexer default)
+     [('color-lexer default)
       (wrap-lexer (_get-info 'color-lexer default))]
      ;; this doesn't work (yet) for refactorings using syntax-properties
      #;[('drracket:keystrokes default)
@@ -206,7 +206,6 @@
                                 current-section
                                 l))]))))
 
-  
   (define (process-axiom str name line col pos)
     (define-values (result _) (process-port (open-input-string str) name line col pos))
     result)
@@ -258,11 +257,11 @@
 
   (define (to-sym-port char)
     (open-input-string (format "~s" (string->symbol (string char)))))
-  
+
   (define (maybe-add1 n) (and n (add1 n)))
   (define (remove-whitespace l) (regexp-replace* #rx"[\u00A0 \t]" l ""))
   (define (blank-line? l) (regexp-match? #rx"^[\u00A0 \t]*$" l))
-  
+
   (define-values (interop-read interop-read-syntax interop-get-info)
     (make-meta-reader
      'lindenmayer
@@ -298,12 +297,15 @@
       [(appears-to-have-second-lang? port)
        (interop-get-info port source line col position)]
       [else
-       (error '-get-info "unimplemented")]))
+       (match-lambda**
+        [('color-lexer default)
+         (wrap-lexer #f)]
+        [(sym def) def])]))
 
   (define (appears-to-have-second-lang? port)
     (define l (read-line (peeking-input-port port)))
     (not (regexp-match? #rx"^ *$" l)))
-  
+
   (provide
    parse-fronts ;; for tests
    (rename-out

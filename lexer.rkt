@@ -1,6 +1,6 @@
-#lang racket/base
+#lang 2d racket/base
 (provide wrap-lexer)
-(require racket/match syntax-color/racket-lexer racket/bool)
+(require racket/match syntax-color/racket-lexer racket/bool racket/list)
 (module+ test (require rackunit))
 
 (define (wrap-lexer inner-lexer*)
@@ -10,124 +10,259 @@
         inner-lexer
         (lambda (port offset mode)
           (define-values (text type paren start end) (inner-lexer port))
-          (values text type paren start end offset mode))))
+          (values text type paren start end 0 mode))))
   (make-lexer inner))
 
-(define line-start-mode #f)
-(define inner-line-mode 'inner-line)
-(define below-double-hyphens-mode 'below-double-hyphens)
+(struct post-hyph (mode) #:transparent)
 
-(define (reading-regexp-match m p)
-  (match (regexp-match-peek m p)
-    [(list v r ...)
-     (define len (bytes-length v))
-     (read-bytes len p)
-     (cons v r)]
-    [#f #f]))
+(define (post-hyph0 mode)
+  (post-hyph #f))
+
+(struct errstate (mode) #:transparent)
+
+(define errlabel 'errlabel)
+(define errresum 'errresum)
+(define errnewln 'errnewln)
+
+(struct rule (match output to-state reset) #:transparent)
+
+(define (make-lexer-table 2d)
+  (define cells (drop 2d 3))
+  (define cell-table (make-hash))
+  (define rule-count
+    (for/fold ([h-max 0])
+              ([cells cells])
+      (for ([cell (first cells)])
+        (hash-set! cell-table cell (second cells)))
+      (apply max h-max (map second (car cells)))))
+  (define rule-table (make-hash))
+  (for ([i (in-range rule-count)])
+    (hash-set! rule-table (hash-ref cell-table (list 0 i)) '()))
+  (for ([i (in-range (- rule-count 1) -1 -1)])
+    (define from-state (hash-ref cell-table (list 0 i)))
+    (hash-set! rule-table from-state
+               (cons
+                (rule (hash-ref cell-table (list 1 i))
+                      (hash-ref cell-table (list 2 i))
+                      (hash-ref cell-table (list 3 i))
+                      (hash-ref cell-table (list 4 i)))
+                (hash-ref rule-table from-state))))
+  rule-table)
+
+;; FSM transition table of the lexer. The state of the FSM is stored in the
+;; mode. The error state is handled specially; it must be able to make a
+;; transition for arbitrary input string.
+(define lexer-fsm
+  (make-lexer-table
+   ;;  state     transition regular expression       output symbol  next state    error recovery
+   `#2d
+   ╔═══════════╦════════════════════════════════════╦═════════════╦═════════════╦═══════════╗
+   ║ ,errlabel ║ #rx"^[^\n \t]+"                    ║ error       ║ ,errlabel   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ ,errlabel ║ #rx"^[ \t]+"                       ║             ║ ,errresum   ║ #f        ║
+   ╠═══════════╬════════════════════════════════════╣ white-space ╠═════════════╣           ║
+   ║ ,errlabel ║ #px"^\n\\s*"                       ║             ║ ,errnewln   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
+   ║ any-new   ║ #rx"^[ \t]*===+[ \t]*\n?"          ║             ║ ,post-hyph0 ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
+   ║ any-new   ║ #rx"^[ \t]*---+[ \t]*\n?"          ║ comment     ║ any-new     ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
+   ║ any-new   ║ #rx"^(?!#lang)#+[ \t]*"            ║             ║ start       ║ any-new   ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ any-new   ║ #rx"^#lang[^\n]*\n"                ║ other       ║ any-new     ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ any-new   ║ #px"^\\s+"                         ║ white-space ║ any-new     ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
+   ║ start     ║ #rx"^axiom[ \t]*#+[ \t]*\n?"       ║             ║ axiom-new   ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
+   ║ start     ║ #rx"^rules[ \t]*#+[ \t]*\n?"       ║ comment     ║ rules-lhs   ║ any-new   ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
+   ║ start     ║ #rx"^variables[ \t]*#+[ \t]*\n?"   ║             ║ vars-lhs    ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
+   ║ axiom-new ║ #rx"^[ \t]*===+[ \t]*\n?"          ║             ║ ,post-hyph0 ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
+   ║ axiom-new ║ #rx"^[ \t]*---+[ \t]*\n?"          ║ comment     ║ any-new     ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
+   ║ axiom-new ║ #rx"^#+[ \t]*"                     ║             ║ start       ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ axiom-new ║ #px"^\\s+"                         ║ white-space ║ axiom-new   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣ axiom-new ║
+   ║ axiom-new ║ #px"^[^\\s#]+"                     ║ symbol      ║ axiom-axm   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ axiom-axm ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╣ axiom-axm   ║           ║
+   ║ axiom-axm ║ #px"^[^\\s#]+"                     ║ symbol      ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ axiom-axm ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
+   ║ rules-lhs ║ #rx"^[ \t]*===+[ \t]*\n?"          ║             ║ ,post-hyph0 ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
+   ║ rules-lhs ║ #rx"^[ \t]*---+[ \t]*\n?"          ║ comment     ║ any-new     ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
+   ║ rules-lhs ║ #rx"^#+[ \t]*"                     ║             ║ start       ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ rules-lhs ║ #rx"^[ \t]+"                       ║ white-space ║ rules-lhs   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ rules-lhs ║ #rx"^((?!->|→)[^ \t\n])+"          ║ symbol      ║ rules-arr   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ rules-arr ║ #rx"^[ \t]+"                       ║ white-space ║ rules-arr   ║ rules-lhs ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ rules-arr ║ #rx"^->"                           ║             ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╣ parenthesis ║             ║           ║
+   ║ rules-arr ║ #rx"^→"                            ║             ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╣ rules-rhs   ║           ║
+   ║ rules-rhs ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╣             ║           ║
+   ║ rules-rhs ║ #rx"^((?!->|→)[^ \t\n])+"          ║ symbol      ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ rules-rhs ║ #px"^\n\\s*"                       ║ white-space ║ rules-lhs   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
+   ║ vars-lhs  ║ #rx"^[ \t]*===+[ \t]*\n?"          ║             ║ ,post-hyph0 ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
+   ║ vars-lhs  ║ #rx"^[ \t]*---+[ \t]*\n?"          ║ comment     ║ any-new     ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
+   ║ vars-lhs  ║ #rx"^#+[ \t]*"                     ║             ║ start       ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ vars-lhs  ║ #rx"^[ \t]+"                       ║ white-space ║ vars-lhs    ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ vars-lhs  ║ #rx"^[^ \t\n=]+"                   ║ symbol      ║ vars-equ    ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣ vars-lhs  ║
+   ║ vars-equ  ║ #rx"^[ \t]+"                       ║ white-space ║ vars-equ    ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ vars-equ  ║ #rx"^="                            ║ parenthesis ║ vars-rhs    ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ vars-rhs  ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╣ vars-rhs    ║           ║
+   ║ vars-rhs  ║ #rx"^[^ \t\n=]+"                   ║ constant    ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ vars-rhs  ║ #px"^\n\\s*"                       ║ white-space ║ vars-lhs    ║           ║
+   ╚═══════════╩════════════════════════════════════╩═════════════╩═════════════╩═══════════╝))
 
 (define o (current-output-port))
 (define (make-lexer inner)
   (define  (lex port offset mode)
-    (define-values (a b c) (port-next-location port))
+    (define-values (line col pos) (port-next-location port))
     ;; (or/c bytes syntax) natural mode -> result for the lexer
-    (define (ret token type mode)
-      (define start 0)
-      (define end
-        (if (bytes? token)
-            (bytes-length token)
-            (syntax-span token)))
+    (define (make-token-values token type mode)
+      (define-values (line2 col2 pos2) (port-next-location port))
       (values token
               type
               #f
-              (+ c start)
-              (+ c end)
-              offset
+              pos
+              pos2
+              0
               mode))
+    (define state (or mode 'any-new))
+    #;(printf "lexer:    ~a ~s\n" state (peek-string 20 0 port))
     (cond
       [(eof-object? (peek-char port))
-       (values (read-char port) 'eof #f 0 0 offset mode)]
-      [(eq? mode line-start-mode)
-       (cond
-         [(reading-regexp-match #rx"^#lang.*?\n" port)
-          =>
-          (match-lambda
-            [(list result r ...)
-             (ret result 'other line-start-mode)])]
-         [(reading-regexp-match #px"^[\\s]+" port)
-          =>
-          (match-lambda
-            [(list result r ...)
-             (ret result 'white-space line-start-mode)])]
-         [(reading-regexp-match #rx"^=+\n" port) =>
-          (match-lambda
-            [(list result r ...)
-             (ret result 'other below-double-hyphens-mode)])]
-         [(reading-regexp-match #rx"^-+\n" port) =>
-          (match-lambda
-            [(list result r ...)
-             (ret result 'other line-start-mode)])]
-         [(reading-regexp-match #rx"^ *(#+) +([a-zA-Z][a-zA-Z ]*[a-zA-Z]) +?(#+) *?\n" port) =>
-          (match-lambda
-            [(list result r ...)
-             (ret result 'comment line-start-mode)])]
-         [(regexp-match-peek #px"^ *[\\S]* *(\n|[(->|→|=)].*?\n)" port #;"do we have a valid line?")
-          (lex port offset inner-line-mode)]
-         [(read-bytes-line port) =>
-          (lambda (result)
-            (ret result 'error line-start-mode))])]
-      [(eq? mode inner-line-mode)
-       (cond [(equal? (peek-char port) #\newline)
-              (ret (read-bytes 1 port) 'white-space line-start-mode)]
-             [(with-handlers ([exn:fail:read? (lambda (e) #f)])
-                (read-syntax (object-name port) port))
-              =>
-              (lambda (v)
-                (if (memq (syntax-e v) (list '= '-> '→))
-                    (ret v 'symbol inner-line-mode)
-                    (ret v 'constant inner-line-mode)))]
-             [(reading-regexp-match #px"^ +" port)
-              =>
-              (match-lambda
-                [(list result r ...)
-                 (ret result 'white-space inner-line-mode)])]
-             [(reading-regexp-match #rx"^[^\n\r]*\n" port) =>
-              (match-lambda
-                [(list result r ...)
-                 (ret result 'error line-start-mode)])])]
-      ;; we use else here because the inner lexer may have its own modes
-      [else (inner port offset mode)]))
+       (values (read-char port) 'eof #f 0 0 0 state)]
+      [(post-hyph? state)
+       (call-with-values
+        (λ () (inner port offset (post-hyph-mode state)))
+        (λ (lexeme type data new-token-start new-token-end backup-delta new-mode)
+          (values lexeme type data new-token-start new-token-end backup-delta (post-hyph new-mode))))]
+      [(errstate? state)
+       (call-with-values
+        (λ () (lex port offset errlabel))
+        (λ (lexeme type data new-token-start new-token-end backup-delta new-mode)
+          #;(printf "errstate: was: ~a, matched: ~s; new mode: ~a\n" state lexeme new-mode)
+          (define old-state (errstate-mode state))
+          (define wrapped-mode
+            (cond [(equal? new-mode errlabel) state]
+                  [(equal? new-mode errresum) old-state]
+                  [(equal? new-mode errnewln) (rule-reset (first (hash-ref lexer-fsm old-state)))]
+                  [else (raise-result-error 'lindenmayer-lexer "(or/c 'errorlbl 'errorend)" new-mode)]))
+          (values lexeme type data new-token-start new-token-end backup-delta wrapped-mode)))]
+      [(for/or ([rule (hash-ref lexer-fsm state)])
+         (define match-result
+           (regexp-match-peek (rule-match rule) port))
+         (and match-result (cons rule match-result)))
+       =>
+       (match-lambda
+         [(list rule matched-str substrs ...)
+          (read-bytes (bytes-length matched-str) port)
+          (define to-state (rule-to-state rule))
+          (define new-state
+            (cond
+              [(procedure? to-state)
+               (to-state state)]
+              [else to-state]))
+          (make-token-values matched-str (rule-output rule) new-state)])]
+      [else (lex port offset (errstate state))]))
   lex)
 
 (module+ test
   (require racket/port)
   (define lex (wrap-lexer #f))
-  (define (test-type string mode type mode2 result [token #f])
-    (define in (open-input-string string))
-    (define-values (outtoken outtype _1 _2 _3 _4 outmode)
-      (lex in 0 mode))
-    (define rstring (port->string in))
-    (or (and (equal? outtype type)
-             (equal? outmode mode2)
-             (equal? rstring result)
-             (implies token (equal? token outtoken)))
-        `(expected/got
-          (,type ,outtype)
-          (,mode2 ,outmode)
-          (,result ,rstring)
-          (,token ,outtoken))))
 
-  (check-true
-   (test-type
-    "### axiom ###\nA"
-    line-start-mode
-    'comment
-    line-start-mode
-    "A"
-    #"### axiom ###\n"))
-  (check-true
-   (test-type
-    "F -> F A\n"
-    line-start-mode
-    'constant
-    inner-line-mode
-    " -> F A\n")))
+  (define (test-lexer mode0 input)
+    (define port (open-input-string input))
+    (define (run* limit mode)
+      (define-values (lexeme type data new-token-start new-token-end backup-delta new-mode)
+        (lex port 0 mode))
+      (cond
+        [(or (eof-object? lexeme) (equal? limit 1)) (list mode)]
+        [else (cons (list mode type (bytes->string/utf-8 lexeme))
+                    (run* (if (number? limit) (sub1 limit) #f) new-mode))]))
+    (run* #f mode0))
+  (check-equal? (test-lexer 'any-new "#")     `((any-new   comment "#") start))
+  (check-equal? (test-lexer 'axiom-new "## ") `((axiom-new comment "## ") start))
+  (check-equal? (test-lexer 'rules-lhs "# ")  `((rules-lhs comment "# ") start))
+  (check-equal? (test-lexer 'vars-lhs "#\t")  `((vars-lhs  comment "#\t") start))
+
+  (check-equal? (test-lexer 'any-new "---\n")     `((any-new   comment "---\n") any-new))
+  (check-equal? (test-lexer 'axiom-new "----\n")  `((axiom-new comment "----\n") any-new))
+  (check-equal? (test-lexer 'rules-lhs " ---\n")  `((rules-lhs comment " ---\n") any-new))
+  (check-equal? (test-lexer 'vars-lhs "--- \t\n") `((vars-lhs  comment "--- \t\n") any-new))
+
+  (check-equal? (test-lexer 'any-new "===\n")     `((any-new   comment "===\n") ,(post-hyph #f)))
+  (check-equal? (test-lexer 'axiom-new "====\n")  `((axiom-new comment "====\n") ,(post-hyph #f)))
+  (check-equal? (test-lexer 'rules-lhs " ===\n")  `((rules-lhs comment " ===\n") ,(post-hyph #f)))
+  (check-equal? (test-lexer 'vars-lhs "=== \t\n") `((vars-lhs  comment "=== \t\n") ,(post-hyph #f)))
+
+  (check-equal?
+   (test-lexer 'any-new "#lang lindenmayer racket\n \t \n")
+   `((any-new      other            "#lang lindenmayer racket\n")
+     (any-new      white-space      " \t \n")
+     any-new))
+
+  (check-equal?
+   (test-lexer 'axiom-new " F X  \t\n")
+   `((axiom-new    white-space      " ")
+     (axiom-new    symbol           "F")
+     (axiom-axm    white-space      " ")
+     (axiom-axm    symbol           "X")
+     (axiom-axm    white-space      "  \t")
+     (axiom-axm    white-space      "\n")
+     axiom-new))
+
+  (check-equal?
+   (test-lexer 'rules-lhs " A ->AB\n")
+   `((rules-lhs    white-space      " ")
+     (rules-lhs    symbol           "A")
+     (rules-arr    white-space      " ")
+     (rules-arr    parenthesis      "->")
+     (rules-rhs    symbol           "AB")
+     (rules-rhs    white-space      "\n")
+     rules-lhs))
+
+  (check-equal?
+   (test-lexer 'rules-lhs "X→Y\n ")
+   `((rules-lhs    symbol           "X")
+     (rules-arr    parenthesis      "→")
+     (rules-rhs    symbol           "Y")
+     (rules-rhs    white-space      "\n ")
+     rules-lhs))
+
+  (check-equal?
+   (test-lexer 'vars-lhs " \t n = 8\t\n ")
+   `((vars-lhs     white-space      " \t ")
+     (vars-lhs     symbol           "n")
+     (vars-equ     white-space      " ")
+     (vars-equ     parenthesis      "=")
+     (vars-rhs     white-space      " ")
+     (vars-rhs     constant         "8")
+     (vars-rhs     white-space      "\t")
+     (vars-rhs     white-space      "\n ")
+     vars-lhs)))
