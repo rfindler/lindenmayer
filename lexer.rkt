@@ -52,6 +52,11 @@
 ;; FSM transition table of the lexer. The state of the FSM is stored in the
 ;; mode. The error state is handled specially; it must be able to make a
 ;; transition for arbitrary input string.
+;;
+;; The current error recovery strategy tries to re-lex with the previous state
+;; at every spaces (and fall back to the 'rule-reset' state of the original state
+;; when hitting a new line). Thus, when designing states, it's better not to
+;; have a token that spans across spaces.
 (define lexer-fsm
   (make-lexer-table
    ;;  state     transition regular expression       output symbol  next state    error recovery
@@ -73,11 +78,17 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ any-new   ║ #px"^\\s+"                         ║ white-space ║ any-new     ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ start     ║ #rx"^axiom[ \t]*#+[ \t]*\n?"       ║             ║ axiom-new   ║           ║
+   ║ start     ║ #rx"^axiom[ \t]*"                  ║             ║ start-axm   ║           ║
    ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
-   ║ start     ║ #rx"^rules[ \t]*#+[ \t]*\n?"       ║ comment     ║ rules-lhs   ║ any-new   ║
+   ║ start     ║ #rx"^rules[ \t]*"                  ║             ║ start-rul   ║ any-new   ║
    ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
-   ║ start     ║ #rx"^variables[ \t]*#+[ \t]*\n?"   ║             ║ vars-lhs    ║           ║
+   ║ start     ║ #rx"^variables[ \t]*"              ║             ║ start-var   ║           ║
+   ╠═══════════╬════════════════════════════════════╣ comment     ╠═════════════╬═══════════╣
+   ║ start-axm ║ #rx"^#+[ \t]*\n"                   ║             ║ axiom-new   ║ axiom-new ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╬═══════════╣
+   ║ start-rul ║ #rx"^#+[ \t]*\n"                   ║             ║ rules-lhs   ║ rules-lhs ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╬═══════════╣
+   ║ start-var ║ #rx"^#+[ \t]*\n"                   ║             ║ vars-lhs    ║ vars-lhs  ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
    ║ axiom-new ║ #rx"^[ \t]*===+[ \t]*\n?"          ║             ║ ,post-hyph0 ║           ║
    ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
@@ -138,7 +149,6 @@
    ║ vars-rhs  ║ #px"^\n\\s*"                       ║ white-space ║ vars-lhs    ║           ║
    ╚═══════════╩════════════════════════════════════╩═════════════╩═════════════╩═══════════╝))
 
-(define o (current-output-port))
 (define (make-lexer inner)
   (define  (lex port offset mode)
     (define-values (line col pos) (port-next-location port))
@@ -265,4 +275,22 @@
      (vars-rhs     constant         "8")
      (vars-rhs     white-space      "\t")
      (vars-rhs     white-space      "\n ")
-     vars-lhs)))
+     vars-lhs))
+
+  (check-equal?
+   (test-lexer 'any-new "# axiom\nA\n")
+   `((any-new                comment          "# ")
+     (start                  comment          "axiom")
+     (start-axm              white-space      "\n")
+     (axiom-new              symbol           "A")
+     (axiom-axm              white-space      "\n")
+     axiom-new))
+
+  (check-equal?
+   (test-lexer (errstate 'start-axm) ". !\nA")
+   `((,(errstate 'start-axm) error            ".")
+     (,(errstate 'start-axm) white-space      " ")
+     (start-axm              error            "!")
+     (,(errstate 'start-axm) white-space      "\n")
+     (axiom-new              symbol           "A")
+     axiom-axm)))
