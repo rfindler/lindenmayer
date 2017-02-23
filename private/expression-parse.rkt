@@ -79,7 +79,17 @@
   (define stx-port (open-input-string (format "~s" sym)))
   (port-count-lines! stx-port)
   (set-port-next-location! stx-port line col pos)
-  (read-syntax name stx-port))
+  (fixup-span (read-syntax name stx-port) sym))
+
+(define (fixup-span stx sym)
+  (define str (symbol->string sym))
+  (datum->syntax
+   stx
+   (syntax->datum stx)
+   (list (syntax-source stx) (syntax-line stx)
+         (syntax-column stx) (syntax-position stx)
+         (string-length str))
+   stx))
 
 (module+ test
   (require rackunit racket/port)
