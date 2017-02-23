@@ -53,12 +53,8 @@ h=250
 
 (define camera (basis 'camera (point-at (pos 11 2 -0.5) (pos 3 3 -3) #:up +z)))
 (define (finish turtles variables)
-  (combine camera (draw turtles))
-  #;
-  (parameterize ([current-pict3d-ambient (emitted "azure" 2)]
-                 [current-pict3d-background  (rgba "white" 0)]
-                 )
-    (pict3d->bitmap
-     (freeze (combine camera (sphere origin 1/2) #;(draw turtles)))
-    (hash-ref variables 'w)
-    (hash-ref variables 'h))))
+  (set-rendering-config!
+   (hash-ref variables 'w)
+   (hash-ref variables 'h)
+   #:ambiance? #t)
+  (combine camera (draw turtles)))

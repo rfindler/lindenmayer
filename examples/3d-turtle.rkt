@@ -1,4 +1,4 @@
-#lang debug racket
+#lang racket
 (provide
  (rename-out
   [out:make-turtle make-turtle]
@@ -8,8 +8,11 @@
  roll
  save
  restore
- draw)
+ draw
+ set-rendering-config!)
 (require pict3d (prefix-in 3d: pict3d))
+;;TODO lazy load gui
+(require racket/gui)
 (module+ test (require rackunit))
 
 (define (out:make-turtle start dir up)
@@ -40,13 +43,31 @@
   (turtle-state tur (cons tur s) empty (cons p ps)))
 (define (restore t)
   (match-define (turtle-state _ (cons tur s) p ps) t)
-  (turtle-state tur s empty (cons p ps)))
+  (match-define (turtle pos _ _) tur)
+  (turtle-state tur s (list pos) (cons p ps)))
 
 (define (draw t)
   (match-define (turtle-state _ _ points points-stack) t)
   (for/fold ([p empty-pict3d])
             ([points (in-list (cons points points-stack))])
     (combine p (draw-points points))))
+
+(define current-texturing
+  (make-parameter (list default-color default-emitted)))
+(define (set-rendering-config! width height #:ambiance? [ambiance? #f])
+  (current-pict3d-background (rgba "white" 0))
+  (current-pict3d-add-indicators? #f)
+  (cond
+    [ambiance?
+     (current-texturing (list default-color default-emitted))
+     (current-pict3d-ambient (emitted "white" 1))
+     (current-pict3d-add-sunlight? #t)]
+    [else
+     (current-texturing (list (rgba "black") (emitted "black" 0)))
+     (current-pict3d-ambient (emitted "black" 0))
+     (current-pict3d-add-sunlight? #f)])
+  (current-pict3d-width width)
+  (current-pict3d-height height))
 
 (define (unit-dir? d)
   (dir=? d (dir-normalize d)))
@@ -72,26 +93,34 @@
 (define ls/2 (/ line-size 2))
 (define cap (sphere origin ls/2))
 (define line-length 1)
-(define pipe
-  (freeze
-   (combine
-    cap
-    (move cap (dir line-length 0 0)) 
-    (rotate-y
-     (move
-      (cylinder origin
-                (pos line-size line-size line-length))
-      (dir (- ls/2) (- ls/2) 0))
-     90))))
+(define pipe-cache (make-hash))
+(define (make-pipe)
+  (hash-ref!
+   pipe-cache
+   (current-texturing)
+   (lambda ()
+     (with-color (first (current-texturing))
+       (with-emitted (second (current-texturing))
+         (freeze
+          (combine
+           cap
+           (move cap (dir line-length 0 0))
+           (rotate-y
+            (move
+             (cylinder origin
+                       (pos line-size line-size line-length))
+             (dir (- ls/2) (- ls/2) 0))
+            90))))))))
 
 (define (draw-points pts)
+  (define pipe (make-pipe))
   (for/fold ([p empty-pict3d])
             ([start (in-list pts)]
              [end (in-list (rest pts))])
-    (combine p (dirs->pipe start end))))
+    (combine p (dirs->pipe start end pipe))))
 
 ;;;; helpers
-(define (dirs->pipe start end)
+(define (dirs->pipe start end pipe)
   (define dir (dir- end start))
   (define-values (yaw pitch) (dir->angles dir))
   (define crossdir (dir-cross +x dir))
