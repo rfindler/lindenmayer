@@ -10,7 +10,8 @@
            racket/syntax
            "lexer.rkt"
            "structs.rkt"
-           "syntax-properties.rkt")
+           "syntax-properties.rkt"
+           "private/expression-parse.rkt")
 
   (define (wrap-read-syntax _read-syntax)
     (define double-hyphen (bytes-ref #"=" 0))
@@ -85,7 +86,7 @@
      [(sym def) (_get-info sym def)]))
 
 
-(define mandatory-sections '(axiom rules))
+  (define mandatory-sections '(axiom rules))
   (define valid-sections (append mandatory-sections '(variables)))
   (define (valid-section? s) (member s valid-sections))
   (define section-names-str
@@ -111,14 +112,14 @@
                ,(for/hash ([pr (in-list (hash-ref sections 'variables '()))])
                   (values (list-ref pr 0) (list-ref pr 1))))
               ,(for/list ([c (in-list (hash-ref sections 'axiom))])
-                 c)
+                 (sym-id c))
               ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
-                  `(,(rule-nt pr)
+                  `(,(sym-id (rule-nt pr))
                     ->
                     ,@(for/list ([c (in-list (rule-rhs pr))])
-                        c)))))))
+                        (sym-id c))))))))
          (for ([pr (in-list (hash-ref sections 'rules))])
-           (hash-set! non-terminals (syntax-e (rule-nt pr)) #t))
+           (hash-set! non-terminals (syntax-e (sym-id (rule-nt pr))) #t))
          (cond [eof? (values (reverse (cons l-system l-systems))
                              (sort (hash-map non-terminals (λ (x y) x))
                                    symbol<?))]
@@ -249,14 +250,31 @@
          (do-loop stxs)]
         [else
          ;; this character needs to be turned into an identifier
-         (define stx-port (to-sym-port c))
-         (port-count-lines! stx-port)
-         (set-port-next-location! stx-port line col pos)
-         (define stx (read-syntax name stx-port))
-         (do-loop (cons stx stxs))])))
-
-  (define (to-sym-port char)
-    (open-input-string (format "~s" (string->symbol (string char)))))
+         (define id (to-identifier (string->symbol (string c)) name line col pos))
+         (define non-terminal
+           (cond
+             [(equal? (peek-char sp) #\()
+              (define-values (line col pos) (port-next-location sp))
+              (define stash-arguments-port (open-output-string))
+              (let loop ([d 0])
+                (define c (read-char sp))
+                (when (or (eof-object? c) (equal? c #\newline))
+                  (raise-read-error
+                   (format "did not find end of parameters to ~a" c)
+                   name line col pos 1))
+                (display c stash-arguments-port)
+                (cond
+                  [(and (equal? c #\)) (= d 1))
+                   (void)]
+                  [(equal? c #\)) (loop (- d 1))]
+                  [(equal? c #\() (loop (+ d 1))]
+                  [else (loop d)]))
+              (define arguments-port (open-input-string (get-output-string stash-arguments-port)))
+              (port-count-lines! arguments-port)
+              (set-port-next-location! arguments-port line col pos)
+              (sym id (parse-arguments name arguments-port))]
+             [else (sym id '())]))
+         (do-loop (cons non-terminal stxs))])))
 
   (define (maybe-add1 n) (and n (add1 n)))
   (define (remove-whitespace l) (regexp-replace* #rx"[\u00A0 \t]" l ""))
