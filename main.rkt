@@ -106,24 +106,52 @@
             (hash-ref sections 'rules)
             (datum->syntax
             #f
-            `(l-system
-              ,n :::start :::finish
-              (quote
-               ,(for/hash ([pr (in-list (hash-ref sections 'variables '()))])
-                  (values (list-ref pr 0) (list-ref pr 1))))
-              ,(for/list ([c (in-list (hash-ref sections 'axiom))])
-                 (sym-id c))
-              ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
-                  `(,(sym-id (rule-nt pr))
-                    ->
-                    ,@(for/list ([c (in-list (rule-rhs pr))])
-                        (sym-id c))))))))
-         (for ([pr (in-list (hash-ref sections 'rules))])
-           (hash-set! non-terminals (syntax-e (sym-id (rule-nt pr))) #t))
+            (cond
+              [(parametric-l-system? (hash-ref sections 'rules))
+               (define (sym->app sym) `(,(sym-id sym) ,@(sym-args sym)))
+               `(let (,@(for/list ([pr (in-list (hash-ref sections 'variables '()))])
+                          `[,(list-ref pr 0) ,(list-ref pr 1)]))
+                  (parametric-l-system
+                   ,n :::start :::finish
+                   (hash
+                    ,@(apply
+                       append
+                       (for/list ([pr (in-list (hash-ref sections 'variables '()))])
+                         (list `',(list-ref pr 0) (list-ref pr 0)))))
+                   ,(for/list ([c (in-list (hash-ref sections 'axiom))])
+                      (sym->app c))
+                   ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
+                       `(,(sym->app (rule-nt pr))
+                         ->
+                         ,@(for/list ([c (in-list (rule-rhs pr))])
+                             (sym->app c))))))]
+              [else
+               `(l-system
+                 ,n :::start :::finish
+                 (quote
+                  ,(for/hash ([pr (in-list (hash-ref sections 'variables '()))])
+                     (values (list-ref pr 0) (list-ref pr 1))))
+                 ,(for/list ([c (in-list (hash-ref sections 'axiom))])
+                    (sym-id c))
+                 ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
+                     `(,(sym-id (rule-nt pr))
+                       ->
+                       ,@(for/list ([c (in-list (rule-rhs pr))])
+                           (sym-id c)))))]))))
+
+         (define (add-sym-nt sym) (hash-set! non-terminals (syntax-e (sym-id sym)) #t))
+         (for ([a-rule (in-list (hash-ref sections 'rules))])
+           (add-sym-nt (rule-nt a-rule))
+           (for ([sym (in-list (rule-rhs a-rule))])
+             (add-sym-nt sym)))
+         (for ([sym (in-list (hash-ref sections 'axiom))])
+           (add-sym-nt sym))
+
          (cond [eof? (values (reverse (cons l-system l-systems))
                              (sort (hash-map non-terminals (λ (x y) x))
                                    symbol<?))]
                [else (loop (+ n 1) (cons l-system l-systems))])])))
+  
   (define (parse-front port name)
     (define-values (start-line start-col start-pos) (port-next-location port))
     (define sections (make-hash))
@@ -207,6 +235,15 @@
                                 current-section
                                 l))]))))
 
+  ;; if there are any symbols that have a non-empty sequence of arguments,
+  ;; we treat the whole thing as a parametric l-system (since the error
+  ;; checking is only on the parametric side)
+  (define (parametric-l-system? rules)
+    (for/or ([rule (in-list rules)])
+      (or (pair? (sym-args (rule-nt rule)))
+          (for/or ([sym (in-list (rule-rhs rule))])
+            (pair? (sym-args sym))))))
+
   (define (process-axiom str name line col pos)
     (define the-port (open-input-string str))
     (port-count-lines! the-port)
@@ -270,7 +307,7 @@
               (sym id (parse-arguments name arguments-port))]
              [(equal? c #\))
               (raise-read-error
-               "close paren with no opening paren"
+               "Found close parenthesis `)' with no matching open parenthesis"
                name line col pos 1)]
              [else (sym id '())]))
          (loop (cons non-terminal stxs))])))
@@ -403,7 +440,7 @@
                                   "---\n"
                                   "# axiom #\nA\n# rules #\nA->AA\nB->BA"))
                                 #f)
-                '(A B))
+                '(A B C X))
   (check-equal? (parse-fronts/2 (open-input-string
                                  (string-append
                                   "# axiom #\nA\n# rules #\nA->AA\n"
@@ -412,8 +449,36 @@
                                   "---\n"
                                   "# axiom #\nQ\n# rules #\nQ->QQ\nW->WQ"))
                                 #f)
-                '(A B Q W))
+                '(A B C Q W X))
+  (check-equal? (parse-fronts/2 (open-input-string
+                                 (string-append
+                                  "# axiom #\nA\n# rules #\nA->A-+-A\n"))
+                                #f)
+                '(+ - A))
 
+  (check-equal? (parse-fronts/1 (open-input-string
+                                 (string-append
+                                  "# axiom #\nA\n# rules #\nA->AA\n"
+                                  "---\n"
+                                  "# axiom #\nQ(123)\n# rules #\nQ(x)->Q(x+x)Q(2*x)\nW->WQ(123)\n"
+                                  "---\n"
+                                  "# axiom #\nQ(1,3)\n# rules #\nQ(x,y)->Q(y,x)Q(2*x,0)\nW->WQ(1,2)\n"
+                                  "# variables #\nn=1\na=2\nb=3"))
+                                #f)
+                '((l-system 0 :::start :::finish '#hash() (A) (A -> A A))
+                  (let ()
+                    (parametric-l-system 1 :::start :::finish
+                                         (hash)
+                                         ((Q 123))
+                                         ((Q x) -> (Q (+ x x)) (Q (* 2 x)))
+                                         ((W) -> (W) (Q 123))))
+                  (let ([b 3][a 2][n 1])
+                    (parametric-l-system 2 :::start :::finish
+                                         (hash 'b b 'a a 'n n)
+                                         ((Q 1 3))
+                                         ((Q x y) -> (Q y x) (Q (* 2 x) 0))
+                                         ((W) -> (W) (Q 1 2))))))
+                
   (check-not-exn
    (λ ()
      (parameterize ([read-accept-reader #t])

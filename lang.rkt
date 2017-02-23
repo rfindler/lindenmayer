@@ -6,7 +6,7 @@
    racket/dict
    racket/base)
   "runtime.rkt")
-(provide l-system)
+(provide l-system parametric-l-system)
 
 (define-for-syntax all-non-terminals (make-hash))
 
@@ -38,6 +38,21 @@
 (define-syntax (l-system stx)
   (syntax-parse stx
     [(_ no start finish variables (C ...) (A -> B ...) ...)
+     (with-syntax ([(T ...) (find-terminals #'(B ... ...) #'(A ...))])
+       #'(let ([A (container (add-prefix A))] ...
+               [T (container (add-prefix T))] ...)
+           (register-non-terminals no A ...)
+           (run-lindenmayer (container (list C ...))
+                            (get-non-terminals no)
+                            (list (rule no B ...) ...)
+                            start finish variables)))]))
+
+(define-syntax (parametric-l-system stx)
+  (syntax-parse stx
+    #:datum-literals (->)
+    [(_ no start finish variables
+        ((C:id C-args ...) ...)
+        ((A:id A-args ...) -> (B:id B-args ...) ...) ...)
      (with-syntax ([(T ...) (find-terminals #'(B ... ...) #'(A ...))])
        #'(let ([A (container (add-prefix A))] ...
                [T (container (add-prefix T))] ...)

@@ -47,10 +47,13 @@
            ;; If there is an error, ignore everything before the error
            ;; and try to start over right after the error
            [(error start) $2]
-           [(OP exp-sequence CP) $2])
+           [(OP exp-sequence CP)
+            (add-srcloc $2 $2-start-pos $2-end-pos)])
 
-    (exp-sequence [(exp) (list $1)]
-                  [(exp COMMA exp-sequence) (cons $1 $3)])
+    (exp-sequence [(exp) (list (add-srcloc $1 $1-start-pos $1-end-pos))]
+                  [(exp COMMA exp-sequence)
+                   (cons (add-srcloc $1 $1-start-pos $1-end-pos)
+                         $3)])
     
     (exp [(NUM) $1]
          [(VAR) (to-identifier $1 (the-name)
@@ -64,6 +67,9 @@
          [(- exp) (prec NEG) `(- ,$2)]
          [(exp ^ exp) `(expt ,$1 ,$3)]
          [(OP exp CP) $2]))))
+
+(define (add-srcloc sexp start-position end-position)
+  sexp)
 
 (define (parse-arguments name sp)
   (parameterize ([the-name name])
