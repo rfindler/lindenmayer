@@ -83,13 +83,18 @@
 
 (define (fixup-span stx sym)
   (define str (symbol->string sym))
-  (datum->syntax
-   stx
-   (syntax->datum stx)
-   (list (syntax-source stx) (syntax-line stx)
-         (syntax-column stx) (syntax-position stx)
-         (string-length str))
-   stx))
+  (cond
+    ;; work around what appears to be a bug in read-syntax or maybe ports
+    [(and (exact-nonnegative-integer? (syntax-column stx))
+          (exact-nonnegative-integer? (syntax-line stx)))
+     (datum->syntax
+      stx
+      (syntax->datum stx)
+      (list (syntax-source stx) (syntax-line stx)
+            (syntax-column stx) (syntax-position stx)
+            (string-length str))
+      stx)]
+    [else stx]))
 
 (module+ test
   (require rackunit racket/port)

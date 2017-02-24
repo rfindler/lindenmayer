@@ -6,7 +6,8 @@
    racket/dict
    racket/base)
   racket/match
-  "runtime.rkt")
+  "runtime.rkt"
+  "private/define-arity.rkt")
 (provide l-system parametric-l-system default-callbacks)
 
 (define (default-callbacks name args)
@@ -72,25 +73,36 @@
      (with-syntax ([((T T-args ...) ...)
                     (find-terminals/parametric #'((B B-args ...) ... ...)
                                                #'(A ...))])
-       (with-syntax ([((A/T A/T-args ...) ...) #'((A A-args ...) ... (T T-args ...) ...)])
-         #'(let ()
-             (define variable-x variables)
-             (struct A (A-args ...) #:transparent) ...
-             (struct T (T-args ...) #:transparent) ...
-             (define (parametric-l-system-collect val sofar)
-               (match val
-                 [(A/T A/T-args ...) ((add-prefix A/T) sofar variable-x A/T-args ...)] ...))
-             (define axiom (list (box (C C-args ...)) ...))
-             (define (parametric-l-system-rewrite boxed-sym)
-               (match (unbox boxed-sym)
-                 [(A A-args ...) (set-box! boxed-sym (list (box (B B-args ...)) ...))] ...
-                 [(T T-args ...) (void)] ...))
-             (register-non-terminals no A ...)
-             (run-parametric-lindenmayer
-              axiom
-              parametric-l-system-rewrite
-              parametric-l-system-collect
-              start finish variable-x))))]))
+       (with-syntax ([((A/T A/T-args ...) ...) #'((A A-args ...) ... (T T-args ...) ...)]
+                     [(A-make ...) (generate-temporaries #'(A ...))]
+                     [(T-make ...) (generate-temporaries #'(T ...))])
+         (with-syntax ([arity-checkers
+                        #'(begin
+                            (define/arity (A A-args ...) (A-make A-args ...)) ...
+                            (define/arity (T T-args ...) (T-make T-args ...)) ...)])
+           #'(let ()
+               (define variable-x variables)
+               (struct A (A-args ...) #:transparent #:extra-constructor-name A-make) ...
+               (struct T (T-args ...) #:transparent #:extra-constructor-name T-make) ...
+               (define (parametric-l-system-collect val sofar)
+                 (match val
+                   [(A/T A/T-args ...) ((add-prefix A/T) sofar variable-x A/T-args ...)] ...))
+               (define axiom
+                 (let ()
+                   arity-checkers
+                   (list (box (C C-args ...)) ...)))
+               (define (parametric-l-system-rewrite boxed-sym)
+                 (match (unbox boxed-sym)
+                   [(A A-args ...)
+                    arity-checkers
+                    (set-box! boxed-sym (list (box (B B-args ...)) ...))] ...
+                   [(T T-args ...) (void)] ...))
+               (register-non-terminals no A ...)
+               (run-parametric-lindenmayer
+                axiom
+                parametric-l-system-rewrite
+                parametric-l-system-collect
+                start finish variable-x)))))]))
 
 (define-for-syntax (no-duplicates ids)
   (define table (make-free-id-table))
