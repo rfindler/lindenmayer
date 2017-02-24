@@ -35,7 +35,7 @@
 (define parnewln 'parnewln)
 
 (define sec-regexp
-  #rx"^(#+)[ \t]*([a-zA-Z]+)[ \t]*(#+)($|\n)")
+  #rx"^(#+)[ \t]*([a-zA-Z]+)[ \t]*(#+)[ \t]*($|\n)")
 
 (define (sec-next state data)
   (define transit '(("axiom" . axiom-new) ("rules" . rules-lhs) ("variables" . vars-lhs)))
@@ -269,10 +269,10 @@
         [else (cons (list mode type (bytes->string/utf-8 lexeme))
                     (run* (if (number? limit) (sub1 limit) #f) new-mode))]))
     (run* #f mode0))
-  (check-equal? (test-lexer 'any-new "#")     `((any-new   comment "#") start))
-  (check-equal? (test-lexer 'axiom-new "## ") `((axiom-new comment "## ") start))
-  (check-equal? (test-lexer 'rules-lhs "# ")  `((rules-lhs comment "# ") start))
-  (check-equal? (test-lexer 'vars-lhs "#\t")  `((vars-lhs  comment "#\t") start))
+  (check-equal? (test-lexer 'any-new "# axiom #")           `((any-new   comment "# axiom #") axiom-new))
+  (check-equal? (test-lexer 'axiom-new "## variables ##\n") `((axiom-new comment "## variables ##\n") vars-lhs))
+  (check-equal? (test-lexer 'rules-lhs "# rules #")         `((rules-lhs comment "# rules #") rules-lhs))
+  (check-equal? (test-lexer 'vars-lhs "# axiom #\t")        `((vars-lhs  comment "# axiom #\t") axiom-new))
 
   (check-equal? (test-lexer 'any-new "---\n")     `((any-new   comment "---\n") any-new))
   (check-equal? (test-lexer 'axiom-new "----\n")  `((axiom-new comment "----\n") any-new))
