@@ -19,8 +19,9 @@ T3=0
 e=.22
 v=1.732
 n=6
-w=500
-h=500
+w=2500
+h=2500
+backup=900
 ----------------------------------------
 ## axiom ##
 !(1)F(200)/(45)A
@@ -40,30 +41,10 @@ T3=0
 e=.14
 n=7
 v=1.732
-w=500
-h=500
-----------------------------------------
-## axiom ##
-!(1)F(200)/(45)A
-
-## rules ##
-A → !(v)F(50)[&(a)F(50)A]/(d)[&(a)F(50)A]/(D)[&(a)F(50)A]
-F(l) → F(l*m)
-!(w) → !(w*v)
-## variables ##
-d=112.5
-D=157.5
-a=22.5
-m=1.79
-T1=-.02
-T2=-1
-T3=0
-e=.27
-n=8
-v=1.732
-w=500
-h=500
-----------------------------------------
+w=2500
+h=2500
+backup=1000
+---------------------------------------
 ## axiom ##
 !(1)F(200)/(45)A
 
@@ -82,8 +63,9 @@ T3=-.19
 e=.27
 n=6
 v=1.732
-w=500
-h=500
+w=2500
+h=2500
+backup=900
 ===========================
 (provide (all-defined-out)
          (all-from-out "linden-3d-turtle.rkt"))
@@ -92,9 +74,22 @@ h=500
          (prefix-in r: racket)
          (except-in pict3d move))
 
+#|
+
+`A` creates a branch. A branch grows forward, then rotates around to create three branches (with the
+stuff in []s).
+The F and ! rewrite rule makes older (closer to the trunk) longer and thicker, since the earlier they
+are introduced to the system the more rewrite that occur.
+
+In essence this models how the tree actually grows: over time a given branch gets thicker and longer,
+wich pushes out the attached branches.
+
+|#
+
 (define (A state vars . _) state)
 (define (start variables)
-  (make-turtle zero-dir +y +z))
+  (make-turtle (dir 0 -700 0)
+               +y +x))
 
 (define (adjustment e H T)
   (* e (dir-dist (dir-cross H T))))
@@ -111,10 +106,11 @@ h=500
   (nudge state* 1 (dir-scale (dir-normalize T) α)))
   
 
-(define camera (basis 'camera
-                          (affine-compose
-                           (point-at (pos 0 -1 1500) (pos 0 0 0)))))
+
 (define (finish turtles variables)
+  (define camera (basis 'camera
+                        (affine-compose
+                         (point-at (pos 0 -1 (hash-ref variables 'backup)) (pos 0 0 0)))))
   (set-rendering-config!
    (hash-ref variables 'w)
    (hash-ref variables 'h)
