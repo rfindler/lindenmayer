@@ -80,7 +80,7 @@
      ;; nd- stands for "no-duplicates-"
      (with-syntax ([((nd-A (nd-A-args ...) A-body) ...)
                     (combine-duplicates-into-body-expressions
-                     #'(((A A-args ...) G.G -> (box (B B-args ...)) ...) ...))])
+                     #'(((A A-args ...) G.G -> (box (B (arith-expression B-args) ...)) ...) ...))])
        (with-syntax ([((T T-args ...) ...)
                       (find-terminals/parametric #'((B B-args ...) ... ... (C C-args ...) ...)
                                                  #'(A ...))])
@@ -102,7 +102,7 @@
                  (define axiom
                    (let ()
                      arity-checkers
-                     (list (box (C C-args ...)) ...)))
+                     (list (box (C (arith-expression C-args) ...)) ...)))
                  (define (parametric-l-system-rewrite boxed-sym)
                    (match (unbox boxed-sym)
                      [(nd-A nd-A-args ...)
@@ -115,6 +115,19 @@
                   parametric-l-system-rewrite
                   parametric-l-system-collect
                   start finish variable-x))))))]))
+
+(define-syntax (arith-expression stx)
+  (syntax-parse stx
+    [(_ e)
+     (let loop ([e #'e])
+       (syntax-parse e
+         [(op:id e ...)
+          (with-syntax ([op (datum->syntax #'here (syntax-e #'op) #'op #'op)])
+            #`(op #,@(for/list ([e (in-list (syntax->list #'(e ...)))])
+                       (loop e))))]
+         [id:identifier #'id]
+         [n:number #'n]))]))
+          
 
 (define-for-syntax (combine-duplicates-into-body-expressions stx)
   (syntax-parse stx
@@ -279,4 +292,17 @@
       ((A x) (> x 3) -> (Q (* x x x)) (A (- x 1)))
       ((A y) (> y 0) -> (Q y) (A (- y 1)))
       ((A z) (= z 0) -> (Q (+ z -1234)))))
-   (reverse (list '(Q 125) '(Q 64) '(Q 3) '(Q 2) '(Q 1) '(Q -1234)))))
+   (reverse (list '(Q 125) '(Q 64) '(Q 3) '(Q 2) '(Q 1) '(Q -1234))))
+
+  (check-equal?
+   (let ()
+     (define (start variables) '())
+     (define (finish lst variables) lst)
+     (define (:::A lst variables val) (cons `(A ,val) lst))
+     (define (:::- lst variables) (cons '- lst))
+     (parametric-l-system
+      0
+      start finish (hash 'n 3)
+      ((A 6))
+      ((A x) -> (-) (A (- x 1)))))
+   (reverse (list '- '- '- '(A 3)))))
