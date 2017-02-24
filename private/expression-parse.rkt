@@ -30,7 +30,10 @@
    ["→" 'ARROW]
    [(:+ (:or lower-letter upper-letter)) (token-VAR (string->symbol lexeme))]
    [(:+ digit) (token-NUM (string->number lexeme))]
-   [(:: (:+ digit) #\. (:* digit)) (token-NUM (string->number lexeme))]))
+   [(:: (:+ digit) #\. (:* digit)) (token-NUM (string->number lexeme))]
+   [any-char (raise-a-read-error (format "unrecognized character `~a'" lexeme)
+                                 start-pos end-pos)]))
+                               
 
 (define the-name (make-parameter #f))
 (define comma-sequence-expression-parse+expression-and-arrow-parse
@@ -40,13 +43,8 @@
    (end EOF)
    (tokens value-tokens op-tokens)
    (error (λ (tok-ok? tok-name tok-value start-pos end-pos)
-            (raise-read-error (format "unexpected ~a ~a" tok-name tok-value)
-                              (the-name)
-                              (position-line start-pos)
-                              (position-col start-pos)
-                              (position-offset start-pos)
-                              (- (position-offset end-pos)
-                                 (position-offset start-pos)))))
+            (raise-a-read-error (format "unexpected ~a ~a" tok-name tok-value)
+                                start-pos end-pos)))
 
    (precs (left < > ≤ ≥ =)
           (left - +)
@@ -81,6 +79,15 @@
          [(- exp) (prec NEG) `(- ,$2)]
          [(exp ^ exp) `(expt ,$1 ,$3)]
          [(OP exp CP) $2]))))
+
+(define (raise-a-read-error str start-pos end-pos)
+  (raise-read-error str
+                    (the-name)
+                    (position-line start-pos)
+                    (position-col start-pos)
+                    (position-offset start-pos)
+                    (- (position-offset end-pos)
+                       (position-offset start-pos))))
 
 (define-values (comma-sequence-expression-parse expression-and-arrow-parse)
   (apply values comma-sequence-expression-parse+expression-and-arrow-parse))
