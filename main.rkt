@@ -574,14 +574,11 @@
 
   (define ns (make-base-namespace))
 
-  ;; test case for in-process conditional rules
-  #;
-  (check-equal?
-   (let ([sp (open-output-string)])
+  (check-not-exn
+   (λ ()
      (parameterize ([read-accept-reader #t]
-                    [current-output-port sp]
                     [current-namespace ns])
-       (eval
+       (expand
         (read-syntax
          #f
          (open-input-string
@@ -593,6 +590,4 @@
            "A(x) : x > 0 -> Q(x)A(x-1)\n"
            "A(x) : x = 0 -> Q(x)\n"
            "## variables ##\n"
-           "n=6\n")))))
-     (get-output-string sp))
-   "Q(3)Q(2)Q(1)"))
+           "n=6\n"))))))))
