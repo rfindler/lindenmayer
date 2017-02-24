@@ -19,7 +19,7 @@
 (define expression-lex
   (lexer-src-pos
    [(eof) 'EOF]
-   [(:or #\tab #\space) (expression-lex input-port)]
+   [(:or #\tab #\space) (return-without-pos (expression-lex input-port))]
    [#\newline (token-newline)]
    [(:or "+" "-" "*" "/" "^") (string->symbol lexeme)]
    ["(" 'OP]
@@ -104,6 +104,7 @@
       (syntax->datum #'s)))
   (check-equal? (try "(x)") (list 'x))
   (check-equal? (try "(x+1)") (list '(+ x 1)))
+  (check-equal? (try "( x + 1 )") (list '(+ x 1)))
   (check-equal? (try "(x+1,y^z)") (list '(+ x 1) '(expt y z)))
   (check-equal? (try "(x,y)") (list 'x 'y))
   (check-equal? (try "(-x,y-z-w-p*23)") (list '(- x) '(- (- (- y z) w) (* p 23)))))
