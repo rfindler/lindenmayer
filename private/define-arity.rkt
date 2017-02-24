@@ -1,6 +1,25 @@
-#lang racket/base
-(require (for-syntax racket/base syntax/parse))
+#lang racket
+(require (for-syntax syntax/parse))
 (provide define/arity)
+
+(define-syntax (define/arity stx)
+  (syntax-parse stx 
+    [(_ (def-site-f formal:id ...) e)
+     #`(begin
+         (define-syntax (def-site-f stx)
+           (syntax-parse stx
+             [(use-site-f actual (... ...))
+              (define actual-args-length
+                (syntax-length #'(actual (... ...))))
+              (define formal-args-length
+                #,(syntax-length #'(formal ...)))
+              (unless (= actual-args-length formal-args-length)
+                (signal-length-error formal-args-length
+                                     actual-args-length
+                                     #'def-site-f #'use-site-f))
+              #'(f-proc actual (... ...))]))
+         (define (f-proc formal ...) e))]))
+;; STOP
 
 (define-for-syntax (signal-length-error formal-args-length actual-args-length def-site-f use-site-f)
   (define f (syntax-e def-site-f))
@@ -14,22 +33,7 @@
                       use-site-f
                       (list def-site-f)))
 
-(define-syntax (define/arity stx)
-  (syntax-parse stx 
-    [(_ (def-site-f formal:id ...) e)
-     #`(begin
-         (define-syntax (def-site-f stx)
-           (syntax-parse stx
-             [(use-site-f actual (... ...))
-              (define actual-args-length
-                (length (syntax->list #'(actual (... ...)))))
-              (define formal-args-length
-                #,(length (syntax->list #'(formal ...))))
-              (unless (= actual-args-length formal-args-length)
-                (signal-length-error formal-args-length actual-args-length
-                                     #'definition-site-f #'use-site-f))
-              #'(f-proc actual (... ...))]))
-         (define (f-proc formal ...) e))]))
+(define-for-syntax (syntax-length stx) (length (syntax->list stx)))
 
 (module+ test
   (require rackunit)
