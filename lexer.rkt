@@ -16,6 +16,15 @@
 (define (post-hyph0 mode data)
   (post-hyph #f #f))
 
+(define (in-param0 mode data)
+  (cond
+    [(equal? data '(#"("))
+     (values
+      (in-param mode data)
+      'parenthesis
+      '|(|)]
+    [else (in-param mode data)]))
+
 (struct post-hyph (mode data) #:transparent)
 (struct errstate (mode data) #:transparent)
 (struct in-param (mode data) #:transparent)
@@ -114,7 +123,7 @@
    ║ vars-lhs  ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║                                    ║             ║             ║           ║
-   ║ rules-arr ║ #rx"^\\("                          ║ parenthesis ║ ,in-param   ║           ║
+   ║ rules-arr ║ #rx"^(\\()"                        ║ parenthesis ║ ,in-param0  ║           ║
    ║ rules-rhs ║                                    ║             ║             ║           ║
    ║ vars-equ  ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
@@ -187,11 +196,11 @@
         (λ () (lex port offset parlabel))
         (λ (lexeme type data new-token-start new-token-end backup-delta new-mode)
           #;(printf "parlabel: was: ~a, matched: ~s; new mode: ~a\n" state lexeme new-mode)
-          (define wrapped-mode
-            (cond [(equal? new-mode parlabel) state]
-                  [(equal? new-mode paramend) (in-param-mode state)]
+          (define-values (wrapped-mode new-data)
+            (cond [(equal? new-mode parlabel) (values state data)]
+                  [(equal? new-mode paramend) (values (in-param-mode state) '|)|)]
                   [else (raise-result-error 'lindenmayer-lexer "(or/c 'parlabel 'paramend)" new-mode)]))
-          (values lexeme type data new-token-start new-token-end backup-delta wrapped-mode)))]
+          (values lexeme type new-data new-token-start new-token-end backup-delta wrapped-mode)))]
       [(errstate? state)
        (call-with-values
         (λ () (lex port offset
@@ -228,7 +237,8 @@
                 (λ () (to-state state substrs))
                 (case-lambda
                   [(new-state) (values (rule-output rule) new-state #f)]
-                  [(new-state new-output) (values new-output new-state #f)]))]
+                  [(new-state new-output) (values new-output new-state #f)]
+                  [(new-state new-output new-info) (values new-output new-state new-info)]))]
               [else (values (rule-output rule) to-state #f)]))
           (make-token-values matched-str new-output new-state new-paren)])]
       [else (lex port offset (errstate state (error-can-resume? port state)))]))
