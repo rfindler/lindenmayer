@@ -21,10 +21,23 @@
 (struct in-param (mode data) #:transparent)
 
 (define errlabel 'errlabel)
+(define errnobrk 'errnobrk)
 (define errresum 'errresum)
 (define errnewln 'errnewln)
 (define parlabel 'parlabel)
 (define paramend 'paramend)
+
+(define sec-regexp
+  #rx"^(#+)[ \t]*([a-zA-Z]+)[ \t]*(#+)($|\n)")
+
+(define (sec-next state data)
+  (define transit '(("axiom" . axiom-new) ("rules" . rules-lhs) ("variables" . vars-lhs)))
+  (cond
+    [(and (>= (length data) 3)
+          (equal? (list-ref data 0) (list-ref data 2))
+          (assoc (bytes->string/utf-8 (list-ref data 1)) transit))
+     => cdr]
+    [else (values state 'error)]))
 
 (struct rule (match output to-state reset) #:transparent)
 
@@ -65,11 +78,15 @@
    ;;  state     transition regular expression       output symbol  next state    error recovery
    `#2d
    ╔═══════════╦════════════════════════════════════╦═════════════╦═════════════╦═══════════╗
-   ║ ,errlabel ║ #rx"^[^\n \t]+"                    ║ error       ║ ,errlabel   ║           ║
+   ║ ,errlabel ║ #rx"^[^ \t\n]+"                    ║ error       ║ ,errlabel   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ ,errlabel ║ #rx"^[ \t]+"                       ║             ║ ,errresum   ║ #f        ║
+   ║ ,errlabel ║ #rx"^[ \t]+"                       ║             ║ ,errresum   ║           ║
    ╠═══════════╬════════════════════════════════════╣ white-space ╠═════════════╣           ║
-   ║ ,errlabel ║ #px"^\n\\s*"                       ║             ║ ,errnewln   ║           ║
+   ║ ,errlabel ║ #px"^\n\\s*"                       ║             ║ ,errnewln   ║ #f        ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ ,errnobrk ║ #rx"^[^\n]+"                       ║ error       ║ ,errlabel   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ ,errnobrk ║ #px"^\n\\s*"                       ║ white-space ║ ,errnewln   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
    ║ ,parlabel ║ #px"^\\s+"                         ║ white-space ║ ,parlabel   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
@@ -92,8 +109,8 @@
    ║ vars-lhs  ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
    ║ any-new   ║                                    ║             ║             ║           ║
-   ║ axiom-new ║ #rx"^#+[ \t]*"                     ║             ║             ║           ║
-   ║ rules-lhs ║                                    ║             ║ start       ║ #f        ║
+   ║ axiom-new ║ ,sec-regexp                        ║             ║ ,sec-next   ║           ║
+   ║ rules-lhs ║                                    ║             ║             ║ #f        ║
    ║ vars-lhs  ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║                                    ║             ║             ║           ║
@@ -111,18 +128,6 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
    ║ any-new   ║ #rx"^#lang[^\n]*(\n|$)"            ║ other       ║ any-new     ║ any-new   ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ start     ║ #rx"^axiom[ \t]*"                  ║             ║ start-axm   ║           ║
-   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
-   ║ start     ║ #rx"^rules[ \t]*"                  ║             ║ start-rul   ║ any-new   ║
-   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
-   ║ start     ║ #rx"^variables[ \t]*"              ║             ║ start-var   ║           ║
-   ╠═══════════╬════════════════════════════════════╣ comment     ╠═════════════╬═══════════╣
-   ║ start-axm ║ #rx"^#+[ \t]*(\n|$)"               ║             ║ axiom-new   ║ axiom-new ║
-   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╬═══════════╣
-   ║ start-rul ║ #rx"^#+[ \t]*(\n|$)"               ║             ║ rules-lhs   ║ rules-lhs ║
-   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╬═══════════╣
-   ║ start-var ║ #rx"^#+[ \t]*(\n|$)"               ║             ║ vars-lhs    ║ vars-lhs  ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
    ║ axiom-new ║ #px"^[^\\s#(]+"                    ║ symbol      ║ axiom-axm   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
@@ -131,7 +136,7 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ rules-lhs ║ #rx"^((?!->|→)[^ \t\n(])+"         ║ symbol      ║ rules-arr   ║           ║
+   ║ rules-lhs ║ #rx"^((?!->|→)[^ \t\n(#])+"        ║ symbol      ║ rules-arr   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-arr ║ #rx"^[ \t]+"                       ║ white-space ║ rules-arr   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
@@ -143,7 +148,7 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-rhs ║ #px"^\n\\s*"                       ║ white-space ║ rules-lhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ vars-lhs  ║ #rx"^[^ \t\n=(]+"                  ║ symbol      ║ vars-equ    ║           ║
+   ║ vars-lhs  ║ #rx"^[^ \t\n=(#]+"                 ║ symbol      ║ vars-equ    ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ vars-equ  ║ #rx"^[ \t]+"                       ║ white-space ║ vars-equ    ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
@@ -157,12 +162,15 @@
    ╚═══════════╩════════════════════════════════════╩═════════════╩═════════════╩═══════════╝))
 
 (define (make-lexer inner)
-  (define  (lex port offset mode)
+  (define (error-can-resume? port state)
+    (or (not (member state '(any-new axiom-new rules-lhs vars-lhs)))
+        (not (regexp-match-peek #rx"^(->|#)" port))))
+  (define (lex port offset mode)
     (define-values (line col pos) (port-next-location port))
     ;; (or/c bytes syntax) natural mode -> result for the lexer
-    (define (make-token-values token type mode)
+    (define (make-token-values token type mode paren)
       (define-values (line2 col2 pos2) (port-next-location port))
-      (values token type #f pos pos2 0 mode))
+      (values token type paren pos pos2 0 mode))
     (define state (or mode 'any-new))
     #;(printf "lexer:    ~a ~s\n" state (peek-string 20 0 port))
     (cond
@@ -186,7 +194,10 @@
           (values lexeme type data new-token-start new-token-end backup-delta wrapped-mode)))]
       [(errstate? state)
        (call-with-values
-        (λ () (lex port offset errlabel))
+        (λ () (lex port offset
+                   (if (errstate-data state)
+                       errlabel
+                       errnobrk)))
         (λ (lexeme type data new-token-start new-token-end backup-delta new-mode)
           #;(printf "errstate: was: ~a, matched: ~s; new mode: ~a\n" state lexeme new-mode)
           (define old-state (errstate-mode state))
@@ -210,13 +221,17 @@
           (read-bytes (bytes-length matched-str) port)
           (define to-state (rule-to-state rule))
           #;(printf "lexer:                 matched ~s; to-state: ~a\n" matched-str to-state)
-          (define new-state
+          (define-values (new-output new-state new-paren)
             (cond
               [(procedure? to-state)
-               (to-state state substrs)]
-              [else to-state]))
-          (make-token-values matched-str (rule-output rule) new-state)])]
-      [else (lex port offset (errstate state #f))]))
+               (call-with-values
+                (λ () (to-state state substrs))
+                (case-lambda
+                  [(new-state) (values (rule-output rule) new-state #f)]
+                  [(new-state new-output) (values new-output new-state #f)]))]
+              [else (values (rule-output rule) to-state #f)]))
+          (make-token-values matched-str new-output new-state new-paren)])]
+      [else (lex port offset (errstate state (error-can-resume? port state)))]))
   lex)
 
 (module+ test
