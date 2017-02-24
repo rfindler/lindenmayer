@@ -122,6 +122,9 @@
                       (sym->app c))
                    ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
                        `(,(sym->app (rule-nt pr))
+                         ,@(if (rule-guard pr)
+                               (list (rule-guard pr))
+                               '())
                          ->
                          ,@(for/list ([c (in-list (rule-rhs pr))])
                              (sym->app c))))))]
@@ -134,6 +137,11 @@
                  ,(for/list ([c (in-list (hash-ref sections 'axiom))])
                     (sym-id c))
                  ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
+                     (when (rule-guard pr)
+                       (raise-syntax-error
+                        'lindenmayer
+                        "conditions are supported only for parametric lindenmayer systems"
+                        (rule-guard pr)))
                      `(,(sym-id (rule-nt pr))
                        ->
                        ,@(for/list ([c (in-list (rule-rhs pr))])
@@ -341,7 +349,7 @@
          (loop)]))
     (define condition-port (open-input-string (get-output-string stash-condition-port)))
     (port-count-lines! condition-port)
-    (set-port-next-location! the-port cond-start-line cond-start-col cond-start-pos)
+    (set-port-next-location! condition-port cond-start-line cond-start-col cond-start-pos)
     (parse-expression-and-arrow name condition-port))
 
   (define (maybe-add1 n) (and n (add1 n)))
