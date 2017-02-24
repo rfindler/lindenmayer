@@ -13,6 +13,8 @@
  draw
  starting-turtle
  insert-pict
+ set-width
+ reorient-to-up
  set-rendering-config!)
 (require pict3d (prefix-in 3d: pict3d))
 ;;TODO lazy load gui
@@ -83,9 +85,20 @@
   (match-define (turtle-state tur s p ps es) t)
   (turtle-state (turtle-grow tur d) s p ps es))
 
+(define (set-width t w)
+  (match-define (turtle-state (turtle pos d u _ c) s p ps extras) t)
+  (turtle-state (turtle pos d u w c) s p ps extras) )
+
+
 (define (insert-pict t pict)
   (match-define (turtle-state tur s p ps extras) t)
   (turtle-state tur s p ps (cons (turtle->extras tur pict) extras)))
+
+(define (reorient-to-up t)
+  (match-define (turtle-state (turtle pos d u w c) s p ps extras) t)
+  (define l (dir-normalize (dir-cross -z d)))
+  (define u* (dir-cross d l))
+  (turtle-state (turtle pos d u* w c) s p ps extras))
 
 (define (turtle->point t)
   (match-define (turtle p _ _ width color) t)

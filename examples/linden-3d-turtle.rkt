@@ -1,5 +1,6 @@
 #lang racket
 (provide + - & ∧ ^ \\ / \| \[ \] ’ \' ! F
+         $
          ;; from 3d-turtle.rkt
          insert-pict make-turtle starting-turtle draw set-rendering-config!)
 (require "3d-turtle.rkt" (prefix-in r: racket))
@@ -30,8 +31,11 @@
 (define (’ state variables)
   (shift-color-index state 1))
 (define \' ’)
-(define (! state variables [shift -0.4])
-  (grow state shift))
+(define (! state variables [set #f])
+  (if set
+      (set-width state set)
+      (grow state -0.4)))
 (define (F state variables [distance 1])
   (move state distance))
-
+(define ($ state variables)
+  (reorient-to-up state))
