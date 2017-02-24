@@ -15,6 +15,9 @@
  insert-pict
  set-width
  reorient-to-up
+ nudge
+ rotate-about
+ turtle-facing
  set-rendering-config!)
 (require pict3d (prefix-in 3d: pict3d))
 ;;TODO lazy load gui
@@ -45,6 +48,18 @@
 (struct extras (point dir pict)
   #:transparent
   #:extra-constructor-name make-extras)
+
+(define (turtle-facing t)
+  (match-define (turtle-state (turtle pos d u _ c) s p ps extras) t)
+  d)
+
+(define (rotate-about t axis α)
+  (match-define (turtle-state tur s p ps es) t)
+  (turtle-state (turtle-rotate tur axis α) s p ps es))
+
+(define (nudge t H T)
+  (match-define (turtle-state tur s p ps extras) t)
+  (turtle-state (turtle-torque tur H T) s p ps extras))
 
 (define (yaw t φ)
   (match-define (turtle-state tur s p ps es) t)
@@ -113,6 +128,7 @@
 (define (set-rendering-config! width height #:ambiance? [ambiance? #f] #:debug? [debug? #f])
   (current-pict3d-background (rgba "white" 0))
   (current-pict3d-add-indicators? debug?)
+  (current-pict3d-add-grid?)
   (cond
     [ambiance?
      (current-texturing (list default-color default-emitted))
@@ -204,11 +220,7 @@
   (define-values (yaw pitch) (dir->angles dir))
   (define crossdir (dir-cross +x dir))
   (define axis (dir-cross +x dir))
-  (define angle
-    (radians->degrees
-     (acos
-      (/ (dir-dot +x dir)
-         (* (dir-dist +x) (dir-dist dir))))))
+  (define angle (angle-between +x dir))
   (transform
    pict
    (affine-compose
@@ -221,6 +233,16 @@
   (and (=-ish? (dir-dx d1) (dir-dx d2))
        (=-ish? (dir-dy d1) (dir-dy d2))
        (=-ish? (dir-dz d1) (dir-dz d2))))
+
+(define (angle-between v k)
+  (radians->degrees
+   (acos
+    (max
+     -1
+     (min
+      1
+      (/ (dir-dot v k)
+         (* (dir-dist v) (dir-dist k))))))))
 
 (define (zero-dir? axis)
   (dir=? axis zero-dir))
@@ -241,16 +263,20 @@
 ;; pitch the turtle up or down φ degrees
 (define (turtle-pitch t φ)
   (match-define (turtle pos dir up width color-index) t)
-  (define axis (dir-cross dir up))
-  (define dir* (dir-normalize (rotate dir axis φ)))
-  (define up* (dir-normalize (rotate up axis φ)))
-  (make-turtle pos dir* up* width color-index))
+  (turtle-rotate t (dir-cross dir up) φ))
 
 ;; pitch the turtle by φ degrees
 (define (turtle-roll t φ)
   (match-define (turtle pos dir up width color-index) t)
   (define up* (dir-normalize (rotate up dir φ)))
   (make-turtle pos dir up* width color-index))
+
+
+(define (turtle-rotate t axis φ)
+  (match-define (turtle pos dir up width color-index) t)
+  (define dir* (dir-normalize (rotate dir axis φ)))
+  (define up* (dir-normalize (rotate up axis φ)))
+  (make-turtle pos dir* up* width color-index))
 
 (define (turtle-move t d)
   (match-define (turtle pos dir up width color-index) t)
@@ -264,6 +290,21 @@
 (define (turtle-change-color t d)
   (match-define (turtle pos dir up width color-index) t)
   (make-turtle  pos dir up width (+ color-index d)))
+
+(define (turtle-torque tur dist T)
+  (match-define (turtle pos dir** up width color-index) tur)
+  (define dir (dir-scale dir** dist))
+  (define axis (dir-normalize (dir-cross dir T)))
+  (cond
+    [(implies axis (zero-dir? axis))
+     tur]
+    [else
+     (define dir* (dir-normalize (dir+ dir T)))
+     (define rotated (angle-between dir* dir))
+     (define up* (rotate up axis rotated))
+     (turtle pos dir* up* width color-index)]))
+
+
 
 ;; Dir Dir Degrees -> Dir
 ;; rotate v1 around v2 by θ
