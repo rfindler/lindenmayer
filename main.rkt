@@ -501,6 +501,15 @@
   (check-not-exn
    (λ ()
      (parameterize ([read-accept-reader #t])
+       (read-syntax #f
+                    (open-input-string
+                     (string-append
+                      "#lang lindenmayer racket\n"
+                      "# axiom #\nα(β)\n# rules #\nα(σ) -> α(σ+β)\n# variables #\nβ=2"))))))
+
+  (check-not-exn
+   (λ ()
+     (parameterize ([read-accept-reader #t])
        (read-syntax
         #f
         (open-input-string
@@ -511,7 +520,7 @@
 
   (check-exn
    (λ (x) (and (exn:fail:syntax? x)
-               (regexp-match #rx"two rules.* A " (exn-message x))))
+               (regexp-match #rx"expected only one rule for.* for A" (exn-message x))))
    (λ ()
      (parameterize ([read-accept-reader #t])
        (expand

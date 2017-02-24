@@ -8,9 +8,10 @@
 (define-empty-tokens op-tokens (newline = OP CP + - * / ^ EOF NEG COMMA))
   
 (define-lex-abbrevs
-  (lower-letter (:/ "a" "z"))
-    
-  (upper-letter (:/ #\A #\Z))
+  (lower-letter (:/ "a" "z" "α" "ω"))
+
+  ;; the Α is uppercase α, not uppercase a
+  (upper-letter (:/ #\A #\Z #\Α #\Ω))
     
   ;; (:/ 0 9) would not work because the lexer does not understand numbers.  (:/ #\0 #\9) is ok too.
   (digit (:/ "0" "9")))
