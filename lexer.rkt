@@ -19,10 +19,7 @@
 (define (in-param0 mode data)
   (cond
     [(equal? data '(#"("))
-     (values
-      (in-param mode data)
-      'parenthesis
-      '|(|)]
+     (values (in-param mode data) 'parenthesis '|(|)]
     [else (in-param mode data)]))
 
 (struct post-hyph (mode data) #:transparent)
@@ -64,7 +61,8 @@
   (for ([i (in-range rule-count)])
     (for ([from-state (hash-ref cell-table (list 0 i))])
       (hash-set! rule-table from-state '())))
-  (for ([i (in-range (- rule-count 1) -1 -1)])
+  (for ([i+1 (in-range rule-count 0 -1)])
+    (define i (- i+1 1))
     (for ([from-state (hash-ref cell-table (list 0 i))])
       (hash-set! rule-table from-state
                  (cons
@@ -132,7 +130,6 @@
    ║ axiom-axm ║                                    ║             ║             ║           ║
    ║ rules-arr ║ #rx"^(\\()"                        ║ parenthesis ║ ,in-param0  ║           ║
    ║ rules-rhs ║                                    ║             ║             ║           ║
-   ║ vars-equ  ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ any-new   ║                                    ║             ║ any-new     ║           ║
    ╠═══════════╣                                    ║             ╠═════════════╣           ║
@@ -157,10 +154,14 @@
    ║ rules-arr ║ #rx"^[ \t]+"                       ║ white-space ║ rules-arr   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-arr ║ #rx"^(->|→)"                       ║ parenthesis ║ rules-rhs   ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣ rules-lhs ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-rhs ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╣ rules-rhs   ║           ║
-   ║ rules-rhs ║ #rx"^((?!->|→)[^ \t\n()#])+"       ║ symbol      ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╣             ║ rules-lhs ║
+   ║ rules-rhs ║ #rx"^((?!->|→)[^][ \t\n()#])+"     ║             ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ║ rules-rhs   ║           ║
+   ║ rules-rhs ║ #rx"^\\["                          ║ symbol      ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ║             ║           ║
+   ║ rules-rhs ║ #rx"^\\]"                          ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-rhs ║ #rx"^\n[ \t]*"                     ║ white-space ║ rules-lhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
@@ -247,6 +248,8 @@
                   [(new-state) (values (rule-output rule) new-state #f)]
                   [(new-state new-output) (values new-output new-state #f)]
                   [(new-state new-output new-info) (values new-output new-state new-info)]))]
+              [(and (equal? state 'rules-rhs) (assoc matched-str '((#"[" . |[|) (#"]" . |]|))))
+               => (λ (paren-info) (values (rule-output rule) to-state (cdr paren-info)))]
               [else (values (rule-output rule) to-state #f)]))
           (make-token-values matched-str new-output new-state new-paren)])]
       [else (lex port offset (errstate state (error-can-resume? port state)))]))
