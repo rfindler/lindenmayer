@@ -82,8 +82,11 @@ The F and ! rewrite rule makes older (closer to the trunk) longer and thicker, s
 are introduced to the system the more rewrite that occur.
 
 In essence this models how the tree actually grows: over time a given branch gets thicker and longer,
-wich pushes out the attached branches.
+which pushes out the attached branches.
 
+Intersting bit about this mode: It defines a vector (T1,T2,T3) that defines the tropism (the
+tendency twards deformation the plant has as it grows) and an resistance to that deformation e.
+this deformation is applied each time the turtle moves.
 |#
 
 (define (A state vars . _) state)
