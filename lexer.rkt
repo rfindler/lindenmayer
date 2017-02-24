@@ -35,6 +35,7 @@
 (define errnewln 'errnewln)
 (define parlabel 'parlabel)
 (define paramend 'paramend)
+(define parnewln 'parnewln)
 
 (define sec-regexp
   #rx"^(#+)[ \t]*([a-zA-Z]+)[ \t]*(#+)($|\n)")
@@ -74,6 +75,10 @@
                   (hash-ref rule-table from-state)))))
   rule-table)
 
+(define (state-reset state)
+  (define reset-state (map rule-reset (hash-ref lexer-fsm state)))
+  (first (filter (λ (x) x) reset-state)))
+
 ;; FSM transition table of the lexer. The state of the FSM is stored in the
 ;; mode. The error state is handled specially; it must be able to make a
 ;; transition for arbitrary input string.
@@ -91,21 +96,23 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ ,errlabel ║ #rx"^[ \t]+"                       ║             ║ ,errresum   ║           ║
    ╠═══════════╬════════════════════════════════════╣ white-space ╠═════════════╣           ║
-   ║ ,errlabel ║ #px"^\n\\s*"                       ║             ║ ,errnewln   ║ #f        ║
+   ║ ,errlabel ║ #rx"^\n[ \t]*"                     ║             ║ ,errnewln   ║ #f        ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ ,errnobrk ║ #rx"^[^\n]+"                       ║ error       ║ ,errlabel   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ ,errnobrk ║ #px"^\n\\s*"                       ║ white-space ║ ,errnewln   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ ,parlabel ║ #px"^\\s+"                         ║ white-space ║ ,parlabel   ║           ║
+   ║ ,parlabel ║ #px"^[ \t]+"                       ║ white-space ║ ,parlabel   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ ,parlabel ║ #rx"^\n[ \t]*"                     ║ white-space ║ ,parnewln   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ ,parlabel ║ #rx"^,"                            ║             ║ ,parlabel   ║           ║
-   ╠═══════════╬════════════════════════════════════╣ parenthesis ╠═════════════╣           ║
-   ║ ,parlabel ║ #rx"^\\)"                          ║             ║ ,paramend   ║ ,parlabel ║
+   ╠═══════════╬════════════════════════════════════╣ parenthesis ╠═════════════╣ ,parlabel ║
+   ║ ,parlabel ║ #rx"^(\\))"                        ║             ║ ,paramend   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ ,parlabel ║ #px"^\\d+"                         ║ constant    ║ ,parlabel   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ ,parlabel ║ #px"^[^,)\\d \t\n]+"               ║ symbol      ║ ,parlabel   ║           ║
+   ║ ,parlabel ║ #px"^[^,()\\d \t\n]+"              ║ symbol      ║ ,parlabel   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
    ║ any-new   ║                                    ║             ║             ║           ║
    ║ axiom-new ║ #rx"^[ \t]*===+[ \t]*(\n|$)"       ║             ║ ,post-hyph0 ║           ║
@@ -141,11 +148,11 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╣ axiom-axm   ║ axiom-new ║
-   ║ axiom-axm ║ #px"^[^\\s#(]+"                    ║ symbol      ║             ║           ║
+   ║ axiom-axm ║ #px"^[^\\s#()]+"                   ║ symbol      ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ rules-lhs ║ #rx"^((?!->|→)[^ \t\n(#])+"        ║ symbol      ║ rules-arr   ║           ║
+   ║ rules-lhs ║ #rx"^((?!->|→)[^ \t\n()#])+"       ║ symbol      ║ rules-arr   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-arr ║ #rx"^[ \t]+"                       ║ white-space ║ rules-arr   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
@@ -153,11 +160,11 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣ rules-lhs ║
    ║ rules-rhs ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╣ rules-rhs   ║           ║
-   ║ rules-rhs ║ #rx"^((?!->|→)[^ \t\n(#])+"        ║ symbol      ║             ║           ║
+   ║ rules-rhs ║ #rx"^((?!->|→)[^ \t\n()#])+"       ║ symbol      ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-rhs ║ #px"^\n\\s*"                       ║ white-space ║ rules-lhs   ║           ║
+   ║ rules-rhs ║ #rx"^\n[ \t]*"                     ║ white-space ║ rules-lhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ vars-lhs  ║ #rx"^[^ \t\n=(#]+"                 ║ symbol      ║ vars-equ    ║           ║
+   ║ vars-lhs  ║ #rx"^[^ \t\n=()#]+"                ║ symbol      ║ vars-equ    ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ vars-equ  ║ #rx"^[ \t]+"                       ║ white-space ║ vars-equ    ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
@@ -165,9 +172,9 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣ vars-lhs  ║
    ║ vars-rhs  ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╣ vars-rhs    ║           ║
-   ║ vars-rhs  ║ #rx"^[^ \t\n=#]+"                  ║ constant    ║             ║           ║
+   ║ vars-rhs  ║ #rx"^[^ \t\n=#()]+"                ║ constant    ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ vars-rhs  ║ #px"^\n\\s*"                       ║ white-space ║ vars-lhs    ║           ║
+   ║ vars-rhs  ║ #rx"^\n[ \t]*"                     ║ white-space ║ vars-lhs    ║           ║
    ╚═══════════╩════════════════════════════════════╩═════════════╩═════════════╩═══════════╝))
 
 (define (make-lexer inner)
@@ -198,8 +205,11 @@
           #;(printf "parlabel: was: ~a, matched: ~s; new mode: ~a\n" state lexeme new-mode)
           (define-values (wrapped-mode new-data)
             (cond [(equal? new-mode parlabel) (values state data)]
-                  [(equal? new-mode paramend) (values (in-param-mode state) '|)|)]
-                  [else (raise-result-error 'lindenmayer-lexer "(or/c 'parlabel 'paramend)" new-mode)]))
+                  [(and (equal? new-mode paramend) (equal? lexeme #")")) (values (in-param-mode state) '|)|)]
+                  [(equal? new-mode paramend) (values (in-param-mode state) data)]
+                  [(equal? new-mode parnewln) (values (state-reset (in-param-mode state)) data)]
+                  [(errstate? new-mode) (values state data)]
+                  [else (raise-result-error 'lindenmayer-lexer "(or/c 'parlabel 'paramend 'parnewln errstate?)" new-mode)]))
           (values lexeme type new-data new-token-start new-token-end backup-delta wrapped-mode)))]
       [(errstate? state)
        (call-with-values
@@ -213,9 +223,7 @@
           (define wrapped-mode
             (cond [(equal? new-mode errlabel) state]
                   [(equal? new-mode errresum) old-state]
-                  [(equal? new-mode errnewln)
-                   (define reset-state (map rule-reset (hash-ref lexer-fsm old-state)))
-                   (first (filter (λ (x) x) reset-state))]
+                  [(equal? new-mode errnewln) (state-reset old-state)]
                   [else (raise-result-error 'lindenmayer-lexer "(or/c 'errlabel 'errresum 'errnewln)" new-mode)]))
           (values lexeme type data new-token-start new-token-end backup-delta wrapped-mode)))]
       [(for/or ([rule (hash-ref lexer-fsm state)])
