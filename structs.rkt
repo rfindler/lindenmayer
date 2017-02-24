@@ -2,7 +2,7 @@
 
 (provide
  (contract-out
-  (struct rule ([nt sym?] [rhs (listof sym?)]))
+  (struct rule ([nt sym?] [guard (or/c #f syntax?)] [rhs (listof sym?)]))
   (struct sym ([id identifier?] [args (listof any/c)]))))
 (struct sym (id args) #:transparent)
-(struct rule (nt rhs) #:transparent)
+(struct rule (nt guard rhs) #:transparent)

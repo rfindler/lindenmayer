@@ -1,11 +1,12 @@
 #lang racket/base
 (require parser-tools/yacc
          parser-tools/lex
-         (prefix-in : parser-tools/lex-sre))
-(provide to-identifier parse-arguments)
+         (prefix-in : parser-tools/lex-sre)
+         syntax/readerr)
+(provide to-identifier parse-arguments parse-expression-and-arrow)
 
 (define-tokens value-tokens (NUM VAR))
-(define-empty-tokens op-tokens (newline = OP CP + - * / ^ EOF NEG COMMA))
+(define-empty-tokens op-tokens (newline = OP CP + - * / ^ < > ≤ ≥ EOF NEG COMMA ARROW))
   
 (define-lex-abbrevs
   (lower-letter (:/ "a" "z" "α" "ω"))
@@ -21,35 +22,42 @@
    [(eof) 'EOF]
    [(:or #\tab #\space) (return-without-pos (expression-lex input-port))]
    [#\newline (token-newline)]
-   [(:or "+" "-" "*" "/" "^") (string->symbol lexeme)]
+   [(:or "+" "-" "*" "/" "^" "≤" "≥" "<" ">" "=") (string->symbol lexeme)]
    ["(" 'OP]
    [")" 'CP]
    ["," 'COMMA]
+   ["->" 'ARROW]
+   ["→" 'ARROW]
    [(:+ (:or lower-letter upper-letter)) (token-VAR (string->symbol lexeme))]
    [(:+ digit) (token-NUM (string->number lexeme))]
    [(:: (:+ digit) #\. (:* digit)) (token-NUM (string->number lexeme))]))
 
 (define the-name (make-parameter #f))
-(define expression-parse
+(define comma-sequence-expression-parse+expression-and-arrow-parse
   (parser
 
-   (start start)
+   (start comma-sequence expression-and-arrow)
    (end EOF)
    (tokens value-tokens op-tokens)
-   (error (lambda args (void)))
+   (error (λ (tok-ok? tok-name tok-value start-pos end-pos)
+            (raise-read-error (format "unexpected ~a ~a" tok-name tok-value)
+                              (the-name)
+                              (position-line start-pos)
+                              (position-col start-pos)
+                              (position-offset start-pos)
+                              (- (position-offset end-pos)
+                                 (position-offset start-pos)))))
 
-   (precs (left - +)
+   (precs (left < > ≤ ≥ =)
+          (left - +)
           (left * /)
           (left NEG)
           (right ^))
    (src-pos)
    (grammar
-    (start [() #f]
-           ;; If there is an error, ignore everything before the error
-           ;; and try to start over right after the error
-           [(error start) $2]
-           [(OP exp-sequence CP)
-            (add-srcloc $2 $2-start-pos $2-end-pos)])
+    (comma-sequence [(OP exp-sequence CP) $2])
+
+    (expression-and-arrow [(exp ARROW) (add-srcloc $1 $1-start-pos $1-end-pos)])
 
     (exp-sequence [(exp) (list (add-srcloc $1 $1-start-pos $1-end-pos))]
                   [(exp COMMA exp-sequence)
@@ -65,16 +73,38 @@
          [(exp - exp) `(- ,$1 ,$3)]
          [(exp * exp) `(* ,$1 ,$3)]
          [(exp / exp) `(/ ,$1 ,$3)]
+         [(exp < exp) `(< ,$1 ,$3)]
+         [(exp > exp) `(> ,$1 ,$3)]
+         [(exp ≥ exp) `(>= ,$1 ,$3)]
+         [(exp ≤ exp) `(<= ,$1 ,$3)]
+         [(exp = exp) `(= ,$1 ,$3)]
          [(- exp) (prec NEG) `(- ,$2)]
          [(exp ^ exp) `(expt ,$1 ,$3)]
          [(OP exp CP) $2]))))
 
-(define (add-srcloc sexp start-position end-position)
-  sexp)
+(define-values (comma-sequence-expression-parse expression-and-arrow-parse)
+  (apply values comma-sequence-expression-parse+expression-and-arrow-parse))
 
-(define (parse-arguments name sp)
+(define (add-srcloc sexp start-pos end-pos)
+  (datum->syntax
+   #f
+   sexp
+   (vector (the-name)
+           (position-line start-pos)
+           (position-col start-pos)
+           (position-offset start-pos)
+           (- (position-offset end-pos)
+              (position-offset start-pos)))))
+
+(require racket/port)
+(define (parse-something name port something)
   (parameterize ([the-name name])
-    (expression-parse (λ () (expression-lex sp)))))
+    (something (λ () (expression-lex port)))))
+
+(define (parse-arguments name port)
+  (parse-something name port comma-sequence-expression-parse))
+(define (parse-expression-and-arrow name port)
+  (parse-something name port expression-and-arrow-parse))
   
 (define (to-identifier sym name line col pos)
   (define stx-port (open-input-string (format "~s" sym)))
@@ -99,13 +129,18 @@
 
 (module+ test
   (require rackunit racket/port)
-  (define (try str)
+  (define (try-expressions str)
     (with-syntax ([s (parse-arguments #f (open-input-string str))])
       (syntax->datum #'s)))
-  (check-equal? (try "(x)") (list 'x))
-  (check-equal? (try "(x+1)") (list '(+ x 1)))
-  (check-equal? (try "( x + 1 )") (list '(+ x 1)))
-  (check-equal? (try "(x+1,y^z)") (list '(+ x 1) '(expt y z)))
-  (check-equal? (try "(x,y)") (list 'x 'y))
-  (check-equal? (try "(-x,y-z-w-p*23)") (list '(- x) '(- (- (- y z) w) (* p 23)))))
+  (define (try-expression-and-arrow str)
+    (with-syntax ([s (parse-expression-and-arrow #f (open-input-string str))])
+      (syntax->datum #'s)))
 
+  (check-equal? (try-expressions "(x)") (list 'x))
+  (check-equal? (try-expressions "(x+1)") (list '(+ x 1)))
+  (check-equal? (try-expressions "( x + 1 )") (list '(+ x 1)))
+  (check-equal? (try-expressions "(x+1,y^z)") (list '(+ x 1) '(expt y z)))
+  (check-equal? (try-expressions "(x,y)") (list 'x 'y))
+  (check-equal? (try-expressions "(-x,y-z-w-p*23)") (list '(- x) '(- (- (- y z) w) (* p 23))))
+  (check-equal? (try-expression-and-arrow " x > 10 ->")
+                '(> x 10)))

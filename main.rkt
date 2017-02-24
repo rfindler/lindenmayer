@@ -218,9 +218,11 @@
               (define the-rule (process-rule l name line col pos failed))
               (loop current-section the-rule)]
              [else ;; continuation of a pending rule
-              (match-define (rule rule-nt rule-current-body) pending-rule)
+              (match-define (rule rule-nt rule-guard rule-current-body) pending-rule)
               (define rule-continued-body (process-axiom l name line col pos))
-              (loop current-section (rule rule-nt (append rule-current-body rule-continued-body)))])]
+              (loop current-section (rule rule-nt
+                                          rule-guard
+                                          (append rule-current-body rule-continued-body)))])]
           [(equal? current-section 'variables)
            (handle-pending-rule)
            (unless (regexp-match? #rx"=" l)
@@ -248,34 +250,40 @@
     (define the-port (open-input-string str))
     (port-count-lines! the-port)
     (set-port-next-location! the-port line col pos)
-    (process-port the-port name))
+    (define-values (axiom last-axiom-char) (process-port the-port name))
+    axiom)
 
   (define (process-rule str name line col pos failed)
     (define arr1? (regexp-match? #rx"->" str))
     (define (end? c p)
-      (if arr1?
-          (and (equal? c #\-)
-               (equal? (peek-char p) #\>)
-               (read-char p) ;; consume the character
-               #t)
-          (equal? c #\→)))
+      (or (equal? c #\:)
+          (if arr1?
+              (and (equal? c #\-)
+                   (equal? (peek-char p) #\>)
+                   (read-char p) ;; consume the character
+                   #t)
+              (equal? c #\→))))
     (define the-port (open-input-string str))
     (port-count-lines! the-port)
     (set-port-next-location! the-port line col pos)
-    (define left (process-port the-port name end?))
-    (define right (process-port the-port name))
+    (define-values (left last-left-char) (process-port the-port name end?))
+    (define guard
+      (cond
+        [(equal? last-left-char #\:) (fetch-guard the-port name)]
+        [else #f]))
+    (define-values (right last-right-char) (process-port the-port name))
     (when (empty? left)
       (failed "expected the name of a non-terminal"))
     (when (> (length left) 1)
       (failed "expected exactly 1 non-terminal name"))
-    (rule (first left) right))
+    (rule (first left) guard right))
 
   (define (process-port sp name [end? (λ (c p) (eof-object? c))])
     (let loop ([stxs '()])
       (define-values (line col pos) (port-next-location sp))
       (define c (read-char sp))
       (cond
-        [(end? c sp) (reverse stxs)]
+        [(end? c sp) (values (reverse stxs) c)]
         [(char-whitespace? c)
          ;; skip whitespace, can assume no newlines
          (loop stxs)]
@@ -311,6 +319,30 @@
                name line col pos 1)]
              [else (sym id '())]))
          (loop (cons non-terminal stxs))])))
+
+  (define (fetch-guard the-port name)
+    (define-values (cond-start-line cond-start-col cond-start-pos) (port-next-location the-port))
+    (define stash-condition-port (open-output-string))
+    (let loop ()
+      (define-values (line col pos) (port-next-location the-port))
+      (define c (read-char the-port))
+      (when (or (eof-object? c) (equal? c #\newline))
+        (raise-read-error
+         "Found end of rule without finishing the condition"
+         name cond-start-line cond-start-col cond-start-pos (- pos cond-start-pos)))
+      (display c stash-condition-port)
+      (cond
+        [(and (equal? c #\-) (equal? (peek-char the-port) #\>))
+         (display (read-char the-port) stash-condition-port)
+         (void)]
+        [(equal? c #\→)
+         (void)]
+        [else
+         (loop)]))
+    (define condition-port (open-input-string (get-output-string stash-condition-port)))
+    (port-count-lines! condition-port)
+    (set-port-next-location! the-port cond-start-line cond-start-col cond-start-pos)
+    (parse-expression-and-arrow name condition-port))
 
   (define (maybe-add1 n) (and n (add1 n)))
   (define (remove-whitespace l) (regexp-replace* #rx"[\u00A0 \t]" l ""))
@@ -531,4 +563,28 @@
            "#lang lindenmayer racket\n"
            "# axiom #\nA\n# rules #\nA -> A\nA -> A"
            "=========\n(+ 1 2)")))))))
-  )
+
+  (define ns (make-base-namespace))
+
+  ;; test case for in-process conditional rules
+  #;
+  (check-equal?
+   (let ([sp (open-output-string)])
+     (parameterize ([read-accept-reader #t]
+                    [current-output-port sp]
+                    [current-namespace ns])
+       (eval
+        (read-syntax
+         #f
+         (open-input-string
+          (string-append
+           "#lang lindenmayer\n"
+           "# axiom #\n"
+           "A(3)\n"
+           "# rules #\n"
+           "A(x) : x > 0 -> Q(x)A(x-1)\n"
+           "A(x) : x = 0 -> Q(x)\n"
+           "## variables ##\n"
+           "n=6\n")))))
+     (get-output-string sp))
+   "Q(3)Q(2)Q(1)"))
