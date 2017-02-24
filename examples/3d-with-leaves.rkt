@@ -5,7 +5,7 @@ A
 A → [&FL!A]/////’[&FL!A]///////’[&FL!A]
 F → S/////F
 S → F L
-L → [’’’∧∧l]
+L → [∧∧l]
 ## variables ##
 n=7
 δ=22.5
@@ -13,7 +13,10 @@ w=1000
 h=1000
 
 ==================================================
-
+;; L means "draw leaf"
+;; S means "Stem", which is a branch and a leaf
+;; F is a branch, which has a stem and another branch comming off it
+;; A is a trunk. It has multiple branches coming off of it
 
 (provide (all-defined-out)
          (all-from-out "linden-3d-turtle.rkt"))
