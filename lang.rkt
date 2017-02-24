@@ -55,7 +55,7 @@
   (syntax-parse stx
     [(_ no start finish variables (C ...) (A -> B ...) ...)
      (no-duplicates (syntax->list #'(A ...)))
-     (with-syntax ([(T ...) (find-terminals #'(B ... ...) #'(A ...))])
+     (with-syntax ([(T ...) (find-terminals #'(B ... ... C ...) #'(A ...))])
        #'(let ([A (container (add-prefix A))] ...
                [T (container (add-prefix T))] ...)
            (register-non-terminals no A ...)
@@ -82,7 +82,7 @@
                     (combine-duplicates-into-body-expressions
                      #'(((A A-args ...) G.G -> (box (B B-args ...)) ...) ...))])
        (with-syntax ([((T T-args ...) ...)
-                      (find-terminals/parametric #'((B B-args ...) ... ...)
+                      (find-terminals/parametric #'((B B-args ...) ... ... (C C-args ...) ...)
                                                  #'(A ...))])
          (with-syntax ([((A/T A/T-args ...) ...)
                         #'((nd-A nd-A-args ...) ... (T T-args ...) ...)]

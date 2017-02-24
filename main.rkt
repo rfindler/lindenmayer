@@ -590,4 +590,34 @@
            "A(x) : x > 0 -> Q(x)A(x-1)\n"
            "A(x) : x = 0 -> Q(x)\n"
            "## variables ##\n"
-           "n=6\n"))))))))
+           "n=6\n")))))))
+
+  (check-not-exn
+   (λ ()
+     (parameterize ([read-accept-reader #t]
+                    [current-namespace ns])
+       (expand
+        (read-syntax
+         #f
+         (open-input-string
+          (string-append
+           "#lang lindenmayer\n"
+           "# axiom #\n"
+           "A\n"
+           "# rules #\n"
+           "B -> B\n")))))))
+
+  (check-not-exn
+   (λ ()
+     (parameterize ([read-accept-reader #t]
+                    [current-namespace ns])
+       (expand
+        (read-syntax
+         #f
+         (open-input-string
+          (string-append
+           "#lang lindenmayer\n"
+           "# axiom #\n"
+           "A\n"
+           "# rules #\n"
+           "B(x) -> B(x)\n"))))))))
