@@ -52,6 +52,7 @@
 (define-syntax (l-system stx)
   (syntax-parse stx
     [(_ no start finish variables (C ...) (A -> B ...) ...)
+     (no-duplicates (syntax->list #'(A ...)))
      (with-syntax ([(T ...) (find-terminals #'(B ... ...) #'(A ...))])
        #'(let ([A (container (add-prefix A))] ...
                [T (container (add-prefix T))] ...)
@@ -67,6 +68,7 @@
     [(_ no start finish variables
         ((C:id C-args ...) ...)
         ((A:id A-args:id ...) -> (B:id B-args ...) ...) ...)
+     (no-duplicates (syntax->list #'(A ...)))
      (with-syntax ([((T T-args ...) ...)
                     (find-terminals/parametric #'((B B-args ...) ... ...)
                                                #'(A ...))])
@@ -89,6 +91,21 @@
               parametric-l-system-rewrite
               parametric-l-system-collect
               start finish variable-x))))]))
+
+(define-for-syntax (no-duplicates ids)
+  (define table (make-free-id-table))
+  (for ([id (in-list ids)])
+    (free-id-table-set! table id (cons id (free-id-table-ref table id '()))))
+  (for ([(k v) (in-dict table)])
+    (unless (= 1 (length v))
+      (raise-syntax-error
+       'lindenmayer
+       (format "expected only one rule for each non-terminal, found ~a for ~a"
+               (length v)
+               (syntax-e (car v)))
+       #f
+       (car ids)
+       (cdr ids)))))
 
 (define-syntax (add-prefix stx)
   (syntax-parse stx

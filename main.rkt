@@ -480,8 +480,14 @@
                 
   (check-not-exn
    (λ ()
+     (with-handlers ([exn:fail?
+                      (λ (x)
+                        (for ([x (in-list (continuation-mark-set->context
+                                           (exn-continuation-marks x)))])
+                          (printf "  ~s\n" x))
+                        (raise x))])
      (parameterize ([read-accept-reader #t])
-       (read (open-input-string "#lang lindenmayer\n# axiom #\nA\n# rules #\nA -> A\n")))))
+       (read (open-input-string "#lang lindenmayer\n# axiom #\nA\n# rules #\nA -> A\n"))))))
 
   (check-not-exn
    (λ ()
@@ -491,4 +497,29 @@
                "#lang lindenmayer racket\n"
                "# axiom #\nA\n# rules #\nA -> A\n"
                "=========\n(+ 1 2)"))))))
+
+  (check-not-exn
+   (λ ()
+     (parameterize ([read-accept-reader #t])
+       (read-syntax
+        #f
+        (open-input-string
+         (string-append
+          "#lang lindenmayer racket\n"
+          "# axiom #\nA\n# rules #\nA -> A\n"
+          "=========\n(+ 1 2)"))))))
+
+  (check-exn
+   (λ (x) (and (exn:fail:syntax? x)
+               (regexp-match #rx"two rules.* A " (exn-message x))))
+   (λ ()
+     (parameterize ([read-accept-reader #t])
+       (expand
+        (read-syntax
+         #f
+         (open-input-string
+          (string-append
+           "#lang lindenmayer racket\n"
+           "# axiom #\nA\n# rules #\nA -> A\nA -> A"
+           "=========\n(+ 1 2)")))))))
   )
