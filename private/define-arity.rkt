@@ -8,22 +8,19 @@
      #`(begin
          (define-syntax (def-site-f stx)
            (syntax-parse stx
+             [(use-site-f formal ...)
+              #'(f-proc formal ...)]
              [(use-site-f actual (... ...))
-              (define actual-args-length
-                (stx-len #'(actual (... ...))))
-              (define formal-args-length
-                #,(stx-len #'(formal ...)))
-              (unless (= actual-args-length
-                         formal-args-length)
-                (signal-length-error
-                 formal-args-length
-                 actual-args-length
-                 #'def-site-f #'use-site-f))
-              #'(f-proc actual (... ...))]))
+              (signal-length-error
+               #'(actual (... ...))
+               #'(formal ...)
+               #'def-site-f #'use-site-f)]))
          (define (f-proc formal ...) e))]))
 ;; STOP
 
-(define-for-syntax (signal-length-error formal-args-length actual-args-length def-site-f use-site-f)
+(define-for-syntax (signal-length-error formal-args actual-args def-site-f use-site-f)
+  (define formal-args-length (stx-len formal-args))
+  (define actual-args-length (stx-len actual-args))
   (define f (syntax-e def-site-f))
   (raise-syntax-error f
                       (format
