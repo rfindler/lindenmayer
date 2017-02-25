@@ -41,10 +41,13 @@
      (dir-normalize up)
      line-size
      0))
-  (turtle-state turtle* empty (list (turtle->point turtle*)) empty #f empty))
+  (turtle-state turtle* empty (list (turtle->point turtle*)) empty empty empty))
 
-(struct turtle-state (turtle stack points points-stack points-set extra-picts)
+(struct turtle-state (turtle stack points points-stack points-set-stack extra-picts)
   #:transparent)
+#|
+(listof (listof points))
+|#
 
 (struct polygon (points)
   #:transparent
@@ -79,11 +82,14 @@
   (match-define (turtle-state tur s p ps poly es) t)
   (turtle-state (turtle-roll tur φ) s p ps poly es))
 
+(define (add-to-poly-stack pt poly)
+  (if (empty? poly) poly (cons (cons pt (first poly)) (rest poly))))
+
 (define (out:move t d)
   (match-define (turtle-state tur s p ps poly es) t)
   (define t* (turtle-move tur d))
   (define pt (turtle->point t*))
-  (turtle-state t* s (cons pt p) ps (and poly (cons pt poly)) es))
+  (turtle-state t* s (cons pt p) ps (add-to-poly-stack pt poly) es))
 (define (move/no-poly t d)
   (match-define (turtle-state tur s p ps poly es) t)
   (define t* (turtle-move tur d))
@@ -94,11 +100,11 @@
   (match-define (turtle-state tur s p ps poly es) t)
   (define t* (turtle-move tur d))
   (define pt (turtle->point t*))
-  (turtle-state t* s p ps (and poly (cons pt poly)) es))
+  (turtle-state t* s p ps (add-to-poly-stack pt poly) es))
 (define (save-vertex t)
   (match-define (turtle-state tur s p ps poly es) t)
   (define pt (turtle->point tur))
-  (turtle-state tur s p ps (and poly (cons pt poly)) es))
+  (turtle-state tur s p ps (add-to-poly-stack pt poly) es))
 
 (define (save t)
   (match-define (turtle-state tur s p ps poly es) t)
@@ -109,11 +115,11 @@
 
 (define (start-poly t)
   (match-define (turtle-state tur s p ps poly es) t)
-  (turtle-state tur s p ps (or poly empty) es))
+  (turtle-state tur s p ps (cons empty poly) es))
 (define (end-poly t)
   (match-define (turtle-state tur s p ps poly es) t)
-  (unless poly (error "attempted to create a polygon without starting one, at " tur))
-  (turtle-state tur s p ps #f (cons (make-polygon poly) es)))
+  (unless (pair? poly) (error "attempted to create a polygon without starting one, at " tur))
+  (turtle-state tur s p ps (rest poly) (cons (make-polygon (first poly)) es)))
 
 (define (draw t [color-vec #f])
   (match-define (turtle-state _ _ points points-stack poly extras) t)
@@ -157,17 +163,19 @@
 
 (define current-texturing
   (make-parameter (list (vector default-color) default-emitted)))
-(define (set-rendering-config! width height #:ambiance? [ambiance? #f] #:debug? [debug? #f])
+(define (set-rendering-config! width height #:ambiance? [ambiance? #f]
+                               #:debug? [debug? #f]
+                               #:emit [emit default-emitted])
   (current-pict3d-background (rgba "white" 0))
   (current-pict3d-add-indicators? debug?)
   (current-pict3d-add-grid?)
   (cond
     [ambiance?
-     (current-texturing (list default-color default-emitted))
+     (current-texturing (list (vector default-color) emit))
      (current-pict3d-ambient (emitted "white" 1))
      (current-pict3d-add-sunlight? #t)]
     [else
-     (current-texturing (list (rgba "black") (emitted "black" 0)))
+     (current-texturing (list (vector (rgba "black")) (emitted "black" 0)))
      (current-pict3d-ambient (emitted "black" 0))
      (current-pict3d-add-sunlight? #f)])
   (current-pict3d-width width)
@@ -246,7 +254,7 @@
 
 (define (draw-poly points colors)
   (define (make-vertex dir c)
-    (vertex (pos+ origin dir) #:color (lookup-color colors c)))
+    (vertex (pos+ origin dir) #:color (lookup-color colors c) #:emitted (second (current-texturing))))
   (match points
     [(or (list) (list _) (list _ _)) empty-pict3d]
     [(list (point dir width color-index) pts ...)
