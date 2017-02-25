@@ -18,6 +18,8 @@
  nudge
  rotate-about
  turtle-facing
+ start-poly
+ end-poly
  set-rendering-config!)
 (require pict3d (prefix-in 3d: pict3d))
 ;;TODO lazy load gui
@@ -36,11 +38,14 @@
      (dir-normalize up)
      line-size
      0))
-  (turtle-state turtle* empty (list (turtle->point turtle*)) empty empty))
+  (turtle-state turtle* empty (list (turtle->point turtle*)) empty #f empty))
 
-(struct turtle-state (turtle stack points points-stack extra-picts)
+(struct turtle-state (turtle stack points points-stack points-set extra-picts)
   #:transparent)
 
+(struct polygon (points)
+  #:transparent
+  #:extra-constructor-name make-polygon)
 (struct point (dir width color-index)
   #:transparent
   #:extra-constructor-name make-point)
@@ -50,70 +55,79 @@
   #:extra-constructor-name make-extras)
 
 (define (turtle-facing t)
-  (match-define (turtle-state (turtle pos d u _ c) s p ps extras) t)
+  (match-define (turtle-state (turtle pos d u _ c) s p ps polys extras) t)
   d)
 
 (define (rotate-about t axis α)
-  (match-define (turtle-state tur s p ps es) t)
+  (match-define (turtle-state tur s p ps poly es) t)
   (turtle-state (turtle-rotate tur axis α) s p ps es))
 
 (define (nudge t H T)
-  (match-define (turtle-state tur s p ps extras) t)
-  (turtle-state (turtle-torque tur H T) s p ps extras))
+  (match-define (turtle-state tur s p ps poly extras) t)
+  (turtle-state (turtle-torque tur H T) s p ps poly extras))
 
 (define (yaw t φ)
-  (match-define (turtle-state tur s p ps es) t)
-  (turtle-state (turtle-yaw tur φ) s p ps es))
+  (match-define (turtle-state tur s p ps poly es) t)
+  (turtle-state (turtle-yaw tur φ) s p ps poly es))
 (define (pitch t φ)
-  (match-define (turtle-state tur s p ps es) t)
-  (turtle-state (turtle-pitch tur φ) s p ps es))
+  (match-define (turtle-state tur s p ps poly es) t)
+  (turtle-state (turtle-pitch tur φ) s p ps poly es))
 (define (roll t φ)
-  (match-define (turtle-state tur s p ps es) t)
-  (turtle-state (turtle-roll tur φ) s p ps es))
+  (match-define (turtle-state tur s p ps poly es) t)
+  (turtle-state (turtle-roll tur φ) s p ps poly es))
 
 (define (out:move t d)
-  (match-define (turtle-state tur s p ps es) t)
+  (match-define (turtle-state tur s p ps poly es) t)
   (define t* (turtle-move tur d))
-  (turtle-state t* s (cons (turtle->point t*) p) ps es))
+  (define pt (turtle->point t*))
+  (turtle-state t* s (if poly p (cons pt p)) ps (and poly (cons pt poly)) es))
 
 (define (save t)
-  (match-define (turtle-state tur s p ps es) t)
-  (turtle-state tur (cons tur s) (list (turtle->point tur)) (cons p ps) es))
+  (match-define (turtle-state tur s p ps poly es) t)
+  (turtle-state tur (cons tur s) (list (turtle->point tur)) (cons p ps) poly es))
 (define (restore t)
-  (match-define (turtle-state _ (cons tur s) p ps es) t)
-  (turtle-state tur s (list (turtle->point tur)) (cons p ps) es))
+  (match-define (turtle-state _ (cons tur s) p ps poly es) t)
+  (turtle-state tur s (list (turtle->point tur)) (cons p ps) poly es))
+
+(define (start-poly t)
+  (match-define (turtle-state tur s p ps poly es) t)
+  (turtle-state tur s p ps (or poly empty) es))
+(define (end-poly t)
+  (match-define (turtle-state tur s p ps poly es) t)
+  (unless poly (error "attempted to create a polygon without starting one, at " tur))
+  (turtle-state tur s p ps #f (cons (make-polygon poly) es)))
 
 (define (draw t [color-vec #f])
-  (match-define (turtle-state _ _ points points-stack extras) t)
+  (match-define (turtle-state _ _ points points-stack poly extras) t)
   (freeze
    (add-extra-picts
     extras
     (for/fold ([p empty-pict3d])
               ([points (in-list (cons points points-stack))])
-      (combine p (draw-points points color-vec))))))
+      (combine p (draw-points points color-vec)))
+    color-vec)))
 
 (define (shift-color-index t d)
-  (match-define (turtle-state tur s p ps es) t)
-  (turtle-state (turtle-change-color tur d) s p ps es))
+  (match-define (turtle-state tur s p ps polys es) t)
+  (turtle-state (turtle-change-color tur d) s p ps polys es))
 
 (define (grow t d)
-  (match-define (turtle-state tur s p ps es) t)
-  (turtle-state (turtle-grow tur d) s p ps es))
+  (match-define (turtle-state tur s p ps polys es) t)
+  (turtle-state (turtle-grow tur d) s p ps polys es))
 
 (define (set-width t w)
-  (match-define (turtle-state (turtle pos d u _ c) s p ps extras) t)
-  (turtle-state (turtle pos d u w c) s p ps extras) )
-
+  (match-define (turtle-state (turtle pos d u _ c) s p ps polys extras) t)
+  (turtle-state (turtle pos d u w c) s p ps polys extras))
 
 (define (insert-pict t pict)
-  (match-define (turtle-state tur s p ps extras) t)
-  (turtle-state tur s p ps (cons (turtle->extras tur pict) extras)))
+  (match-define (turtle-state tur s p ps polys extras) t)
+  (turtle-state tur s p ps polys (cons (turtle->extras tur pict) extras)))
 
 (define (reorient-to-up t)
-  (match-define (turtle-state (turtle pos d u w c) s p ps extras) t)
+  (match-define (turtle-state (turtle pos d u w c) s p ps polys extras) t)
   (define l (dir-normalize (dir-cross -z d)))
   (define u* (dir-cross d l))
-  (turtle-state (turtle pos d u* w c) s p ps extras))
+  (turtle-state (turtle pos d u* w c) s p ps polys extras))
 
 (define (turtle->point t)
   (match-define (turtle p _ _ width color) t)
@@ -192,11 +206,16 @@
              (dir (- ls/2) (- ls/2) 0))
             90))))))))
 
-(define (add-extra-picts extrs pict)
+(define (add-extra-picts extrs pict colors)
   (for/fold ([p pict])
             ([e (in-list extrs)])
-    (match-define (extras pt d ict) e)
-    (combine p (shift-pict pt d ict))))
+    (combine
+     p
+     (match e
+       [(extras pt d ict)
+        (shift-pict pt d ict)]
+       [(polygon points)
+        (draw-poly points colors)]))))
 
 (define (draw-points pts colors)
   (if (empty? pts)
@@ -206,6 +225,30 @@
                  [end (in-list (rest pts))])
         (match-define (point d w c) start)
         (combine p (dirs->pipe d (point-dir end) w (lookup-color colors c))))))
+
+(define (draw-poly points colors)
+  (define (make-vertex dir c)
+    (vertex (pos+ origin dir) #:color (lookup-color colors c)))
+  (match points
+    [(or (list) (list _) (list _ _)) empty-pict3d]
+    [(list (point dir width color-index) pts ...)
+     (define v1 (make-vertex dir color-index))
+     (for/fold ([p empty-pict3d])
+               ([left (in-list pts)]
+                [right (in-list (rest pts))])
+       (match-define (point dir2 _ color-index2) left)
+       (match-define (point dir3 _ color-index3) right)
+       (combine
+        p
+        (triangle
+         #:back? #t
+         v1
+         (make-vertex dir2 color-index2)
+         (make-vertex dir3 color-index3))
+        (triangle
+         v1
+         (make-vertex dir2 color-index2)
+         (make-vertex dir3 color-index3))))]))
 
 (define (lookup-color v c)
   (and v (vector-ref v (modulo c (vector-length v)))))

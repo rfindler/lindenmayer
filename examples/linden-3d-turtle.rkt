@@ -1,6 +1,6 @@
 #lang racket
 (provide + - & ∧ ^ \\ / \| \[ \] ’ \' ! F
-         $
+         $ \{ \}
          ;; from 3d-turtle.rkt
          insert-pict make-turtle starting-turtle draw set-rendering-config!)
 (require "3d-turtle.rkt" (prefix-in r: racket))
@@ -39,3 +39,7 @@
   (move state distance))
 (define ($ state variables)
   (reorient-to-up state))
+(define (\{ state variables)
+  (start-poly state))
+(define (\} state variables)
+  (end-poly state))
