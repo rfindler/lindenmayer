@@ -6,6 +6,8 @@
 
 (define (F turtles variables [length 2] . ignored)
   (cons (draw length (car turtles)) (cdr turtles)))
+(define (f turtles variables [length 2] . ignored)
+  (cons (move length (car turtles)) (cdr turtles)))
 (define (- turtles variables [factor 1] . ignored)
   (cons (turn (:* factor -1 (hash-ref variables 'θ 90)) (car turtles)) (cdr turtles)))
 (define (+ turtles variables [factor 1] . ignored)
