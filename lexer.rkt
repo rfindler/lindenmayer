@@ -146,17 +146,29 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
    ║ any-new   ║ #rx"^#lang[^\n]*(\n|$)"            ║ other       ║ any-new     ║ any-new   ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ axiom-new ║ #px"^[^\\s#(]+"                    ║ symbol      ║ axiom-nta   ║           ║
+   ║ axiom-new ║ #px"^[^][\\s#(]+"                  ║             ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ║             ║           ║
+   ║ axiom-new ║ #rx"^\\["                          ║ symbol      ║ axiom-nta   ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ║             ║           ║
+   ║ axiom-new ║ #rx"^\\]"                          ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-nta ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╣ axiom-nta   ║           ║
-   ║ axiom-nta ║ #px"^[^\\s#()]+"                   ║ symbol      ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╣             ║           ║
+   ║ axiom-nta ║ #px"^[^][\\s#()]+"                 ║             ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ║ axiom-nta   ║           ║
+   ║ axiom-nta ║ #rx"^\\["                          ║ symbol      ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ║             ║           ║
+   ║ axiom-nta ║ #rx"^\\]"                          ║             ║             ║ axiom-new ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ axiom-nta ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║ axiom-new ║
+   ║ axiom-nta ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║ #rx"^[ \t]+"                       ║ white-space ║ axiom-axm   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ axiom-axm ║ #px"^[^\\s#()]+"                   ║ symbol      ║ axiom-nta   ║           ║
+   ║ axiom-axm ║ #px"^[^][\\s#()]+"                 ║             ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ║             ║           ║
+   ║ axiom-axm ║ #rx"^\\["                          ║ symbol      ║ axiom-nta   ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ║             ║           ║
+   ║ axiom-axm ║ #rx"^\\]"                          ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
@@ -285,7 +297,7 @@
                   [(new-state) (values (rule-output rule) new-state #f)]
                   [(new-state new-output) (values new-output new-state #f)]
                   [(new-state new-output new-info) (values new-output new-state new-info)]))]
-              [(and (member state '(rules-rhs rules-ntr))
+              [(and (member state '(axiom-new axiom-nta axiom-axm rules-rhs rules-ntr))
                     (assoc matched-str '((#"[" . |[|) (#"]" . |]|))))
                => (λ (paren-info) (values (rule-output rule) to-state (cdr paren-info)))]
               [else (values (rule-output rule) to-state #f)]))
