@@ -4,6 +4,7 @@
   [out:make-turtle make-turtle]
   [out:move move])
  shift
+ move/no-poly
  yaw
  pitch
  roll
@@ -15,6 +16,7 @@
  starting-turtle
  insert-pict
  set-width
+ save-vertex
  reorient-to-up
  nudge
  rotate-about
@@ -82,11 +84,21 @@
   (define t* (turtle-move tur d))
   (define pt (turtle->point t*))
   (turtle-state t* s (cons pt p) ps (and poly (cons pt poly)) es))
+(define (move/no-poly t d)
+  (match-define (turtle-state tur s p ps poly es) t)
+  (define t* (turtle-move tur d))
+  (define pt (turtle->point t*))
+  (turtle-state t* s (cons pt p) ps poly es))
+
 (define (shift t d)
   (match-define (turtle-state tur s p ps poly es) t)
   (define t* (turtle-move tur d))
   (define pt (turtle->point t*))
   (turtle-state t* s p ps (and poly (cons pt poly)) es))
+(define (save-vertex t)
+  (match-define (turtle-state tur s p ps poly es) t)
+  (define pt (turtle->point tur))
+  (turtle-state tur s p ps (and poly (cons pt poly)) es))
 
 (define (save t)
   (match-define (turtle-state tur s p ps poly es) t)
