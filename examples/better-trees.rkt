@@ -68,10 +68,9 @@ h=2500
 backup=900
 ===========================
 (provide (all-defined-out)
-         (all-from-out "linden-3d-turtle.rkt"))
-(require "linden-3d-turtle.rkt"
-         "3d-turtle.rkt"
-         (prefix-in r: racket)
+         (all-from-out lindenmayer/3d-turtle))
+(require lindenmayer/3d-turtle
+         lindenmayer/3d
          (except-in pict3d move))
 
 #|

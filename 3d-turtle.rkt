@@ -3,7 +3,7 @@
          $ \{ \} \.
          ;; from 3d-turtle.rkt
          insert-pict make-turtle starting-turtle draw set-rendering-config!)
-(require "3d-turtle.rkt" (prefix-in r: racket))
+(require "3d.rkt" (prefix-in r: racket))
 ;; turn left
 (define (+ state variables [δ (hash-ref variables 'δ)])
   (yaw state δ))

@@ -19,8 +19,8 @@ h=1000
 ;; A is a trunk. It has multiple branches coming off of it
 
 (provide (all-defined-out)
-         (all-from-out "linden-3d-turtle.rkt"))
-(require "linden-3d-turtle.rkt"
+         (all-from-out lindenmayer/3d-turtle))
+(require lindenmayer/3d-turtle
          (prefix-in r: racket)
          (except-in pict3d move))
 

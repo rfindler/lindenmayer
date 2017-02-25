@@ -18,10 +18,9 @@ h=250
 
 
 (provide (all-defined-out)
-         (all-from-out "linden-3d-turtle.rkt"))
+         (all-from-out lindenmayer/3d-turtle))
 
-(require "linden-3d-turtle.rkt"
-         (prefix-in r: racket)
+(require lindenmayer/3d-turtle
          (except-in pict3d move))
 
 
