@@ -133,7 +133,7 @@
    ║ vars-lhs  ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-nta ║                                    ║             ║             ║           ║
-   ║ rules-arr ║ #rx"^(\\()"                        ║ parenthesis ║ ,in-param0  ║           ║
+   ║ rules-ntl ║ #rx"^(\\()"                        ║ parenthesis ║ ,in-param0  ║           ║
    ║ rules-ntr ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ any-new   ║                                    ║             ║ any-new     ║           ║
@@ -172,13 +172,15 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ rules-lhs ║ #rx"^((?!->|→)[^ \t\n()#])+"       ║ symbol      ║ rules-arr   ║           ║
+   ║ rules-lhs ║ #rx"^((?!->|→)[^ \t\n()#])+"       ║ symbol      ║ rules-ntl   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-arr ║ #rx"^[ \t]+"                       ║ white-space ║ rules-arr   ║           ║
+   ║ rules-ntl ║ #rx"^((?!->|→)[^ \t\n()#])+"       ║ symbol      ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╣ rules-ntl   ║           ║
+   ║ rules-ntl ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-arr ║ #rx"^:"                            ║             ║ rules-col   ║           ║
+   ║ rules-ntl ║ #rx"^:"                            ║             ║ rules-col   ║           ║
    ╠═══════════╬════════════════════════════════════╣ parenthesis ╠═════════════╣           ║
-   ║ rules-arr ║ #rx"^(->|→)"                       ║             ║ rules-rhs   ║           ║
+   ║ rules-ntl ║ #rx"^(->|→)"                       ║             ║ rules-rhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-col ║ #px"^[ \t]+"                       ║ white-space ║ rules-col   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
@@ -191,8 +193,8 @@
    ║ rules-con ║ #px"^\\d+"                         ║ constant    ║ rules-con   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╣             ║           ║
    ║ rules-con ║ #px"^((?!->|→)[^()\\d \t\n])+"     ║ symbol      ║             ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-con ║ #rx"^(->|→)"                       ║ parenthesis ║ rules-rhs   ║ rules-lhs ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣ rules-lhs ║
+   ║ rules-con ║ #rx"^(->|→)"                       ║ parenthesis ║ rules-rhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-rhs ║ #rx"^[ \t]+"                       ║ white-space ║ rules-rhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
@@ -354,8 +356,8 @@
    (test-lexer 'rules-lhs " A ->AB\n")
    `((rules-lhs    white-space      " ")
      (rules-lhs    symbol           "A")
-     (rules-arr    white-space      " ")
-     (rules-arr    parenthesis      "->")
+     (rules-ntl    white-space      " ")
+     (rules-ntl    parenthesis      "->")
      (rules-rhs    symbol           "AB")
      (rules-ntr    white-space      "\n")
      rules-lhs))
@@ -363,9 +365,21 @@
   (check-equal?
    (test-lexer 'rules-lhs "X→Y\n ")
    `((rules-lhs    symbol           "X")
-     (rules-arr    parenthesis      "→")
+     (rules-ntl    parenthesis      "→")
      (rules-rhs    symbol           "Y")
      (rules-ntr    white-space      "\n ")
+     rules-lhs))
+
+  (check-equal?
+   (test-lexer 'rules-lhs "X→Y\n Z W\n")
+   `((rules-lhs    symbol           "X")
+     (rules-ntl    parenthesis      "→")
+     (rules-rhs    symbol           "Y")
+     (rules-ntr    white-space      "\n ")
+     (rules-lhs    symbol           "Z")
+     (rules-ntl    white-space      " ")
+     (rules-ntl    symbol           "W")
+     (rules-ntl    white-space      "\n")
      rules-lhs))
 
   (check-equal?
@@ -404,7 +418,7 @@
     (define-values (next-state return-state)
       (match state
         ['axiom-new (values 'axiom-nta 'axiom-axm)]
-        ['rules-lhs (values 'rules-arr 'rules-arr)]
+        ['rules-lhs (values 'rules-ntl 'rules-ntl)]
         ['rules-rhs (values 'rules-ntr 'rules-rhs)]))
     (check-equal?
      (test-lexer state "R(3+x *5,)")
