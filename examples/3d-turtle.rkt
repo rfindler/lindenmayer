@@ -3,6 +3,7 @@
  (rename-out
   [out:make-turtle make-turtle]
   [out:move move])
+ shift
  yaw
  pitch
  roll
@@ -80,7 +81,12 @@
   (match-define (turtle-state tur s p ps poly es) t)
   (define t* (turtle-move tur d))
   (define pt (turtle->point t*))
-  (turtle-state t* s (if poly p (cons pt p)) ps (and poly (cons pt poly)) es))
+  (turtle-state t* s (cons pt p) ps (and poly (cons pt poly)) es))
+(define (shift t d)
+  (match-define (turtle-state tur s p ps poly es) t)
+  (define t* (turtle-move tur d))
+  (define pt (turtle->point t*))
+  (turtle-state t* s p ps (and poly (cons pt poly)) es))
 
 (define (save t)
   (match-define (turtle-state tur s p ps poly es) t)

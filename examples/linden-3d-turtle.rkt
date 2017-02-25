@@ -1,5 +1,5 @@
 #lang racket
-(provide + - & ∧ ^ \\ / \| \[ \] ’ \' ! F
+(provide + - & ∧ ^ \\ / \| \[ \] ’ \' ! F f
          $ \{ \}
          ;; from 3d-turtle.rkt
          insert-pict make-turtle starting-turtle draw set-rendering-config!)
@@ -37,6 +37,8 @@
       (grow state -0.4)))
 (define (F state variables [distance 1])
   (move state distance))
+(define (f state variables [distance 1])
+  (shift state distance))
 (define ($ state variables)
   (reorient-to-up state))
 (define (\{ state variables)

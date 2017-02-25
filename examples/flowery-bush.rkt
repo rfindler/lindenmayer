@@ -6,17 +6,17 @@ P
 P → I+[P+F]--//[--L]I[++L]-[PF]++PF
 I → FS[//&&L][//^^]LFS
 S → SFS
-L → ['{+F-FF-F+|+F-FF-F}]
+L → ['{+f-ff-f+|+f-ff-f}]
 F → [&&&p'/W////W////W////W////W////]
 p → FF
-W → ['^F][{&&&&-F+F|-F+F}]
+W → ['^F][''{&&&&-f+f|-f+f}]
 ## variables ##
-n=3
+n=5
 δ=18
 w=500
 h=500
-dist=10
-rot=0
+dist=20
+rot=45
 =========================
 
 #|
@@ -52,4 +52,4 @@ E is segment
    #:ambiance? #t
    ;#:debug? #t
    )
-  (combine camera (draw turtles (vector (rgba "brown") (rgba "green") (rgba "white")))))
+  (combine camera (draw turtles (vector (rgba "brown") (rgba "green") (rgba "white") (rgba "DeepPink")))))
