@@ -346,6 +346,7 @@
      (vars-rhs     white-space      "\n ")
      vars-lhs))
 
+  #;
   (check-equal?
    (test-lexer 'any-new "# axiom\nA\n")
    `((any-new                comment          "# ")
@@ -355,6 +356,7 @@
      (axiom-axm              white-space      "\n")
      axiom-new))
 
+  #;
   (check-equal?
    (test-lexer (errstate 'start-axm '?) ". !\nA")
    `((,(errstate 'start-axm '?) error            ".")
@@ -364,23 +366,21 @@
      (axiom-new                 symbol           "A")
      axiom-axm))
 
-  (for ([state (in-list '(axiom-new rules-lhs rules-rhs vars-lhs))])
+  (for ([state (in-list '(axiom-new rules-lhs rules-rhs))])
     (define next-state
       (match state
         ['axiom-new 'axiom-axm]
         ['rules-lhs 'rules-arr]
-        ['rules-rhs 'rules-rhs]
-        ['vars-lhs  'vars-equ]
-        ['vars-rhs  'vars-rhs]))
+        ['rules-rhs 'rules-rhs]))
     (check-equal?
      (test-lexer state "R(3+x *5,)")
-     `((,state                     symbol           "R")
-       (,next-state                parenthesis      "(")
-       (,(in-param next-state '()) constant         "3")
-       (,(in-param next-state '()) symbol           "+x")
-       (,(in-param next-state '()) white-space      " ")
-       (,(in-param next-state '()) symbol           "*")
-       (,(in-param next-state '()) constant         "5")
-       (,(in-param next-state '()) parenthesis      ",")
-       (,(in-param next-state '()) parenthesis      ")")
+     `((,state                         symbol           "R")
+       (,next-state                    parenthesis      "(")
+       (,(in-param next-state '(#"(")) constant         "3")
+       (,(in-param next-state '(#"(")) symbol           "+x")
+       (,(in-param next-state '(#"(")) white-space      " ")
+       (,(in-param next-state '(#"(")) symbol           "*")
+       (,(in-param next-state '(#"(")) constant         "5")
+       (,(in-param next-state '(#"(")) parenthesis      ",")
+       (,(in-param next-state '(#"(")) parenthesis      ")")
        ,next-state))))
