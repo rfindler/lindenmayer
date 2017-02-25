@@ -6,7 +6,7 @@
 (provide to-identifier parse-arguments parse-expression-and-arrow)
 
 (define-tokens value-tokens (NUM VAR))
-(define-empty-tokens op-tokens (newline = OP CP + - * / ^ < > ≤ ≥ EOF NEG COMMA ARROW))
+(define-empty-tokens op-tokens (newline ≠ = OP CP + - * / ^ < > ≤ ≥ EOF NEG COMMA ARROW))
   
 (define-lex-abbrevs
   (lower-letter (:/ "a" "z" "α" "ω"))
@@ -22,7 +22,7 @@
    [(eof) 'EOF]
    [(:or #\tab #\space) (return-without-pos (expression-lex input-port))]
    [#\newline (token-newline)]
-   [(:or "+" "-" "*" "/" "^" "≤" "≥" "<" ">" "=") (string->symbol lexeme)]
+   [(:or "+" "-" "*" "/" "^" "≤" "≥" "<" ">" "=" "≠") (string->symbol lexeme)]
    ["(" 'OP]
    [")" 'CP]
    ["," 'COMMA]
@@ -46,7 +46,7 @@
             (raise-a-read-error (format "unexpected ~a ~a" tok-name tok-value)
                                 start-pos end-pos)))
 
-   (precs (left < > ≤ ≥ =)
+   (precs (left < > ≤ ≥ = ≠)
           (left - +)
           (left * /)
           (left NEG)
@@ -76,6 +76,7 @@
          [(exp ≥ exp) `(>= ,$1 ,$3)]
          [(exp ≤ exp) `(<= ,$1 ,$3)]
          [(exp = exp) `(= ,$1 ,$3)]
+         [(exp ≠ exp) `(not (= ,$1 ,$3))]
          [(- exp) (prec NEG) `(- ,$2)]
          [(exp ^ exp) `(expt ,$1 ,$3)]
          [(OP exp CP) $2]))))
