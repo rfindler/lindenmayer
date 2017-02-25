@@ -19,6 +19,8 @@ dist=35
 rot=-20
 =========================
 
+#| From ABOP |#
+
 #|
 P is the plant
 S is stem

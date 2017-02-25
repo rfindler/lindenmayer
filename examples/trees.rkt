@@ -93,6 +93,7 @@ dist=3.2
 rot=80
 shift=-2
 ========================================
+#| From ABOP |#
 
 #|
 I don't understand the axioms of this one.
@@ -112,7 +113,6 @@ The remainder of the symbols are the same as usual.
 
 
 (define (finish turtles variables)
-    
   (define dist (hash-ref variables 'dist))
   (define v (angles->dir (hash-ref variables 'rot) 0))
   (define camera (basis 'camera (point-at (pos+ origin (dir-scale v dist)) (pos 0 0 .01) #:up +x)))

@@ -13,6 +13,7 @@ w=1000
 h=1000
 
 ==================================================
+#| From ABOP |#
 ;; L means "draw leaf"
 ;; S means "Stem", which is a branch and a leaf
 ;; F is a branch, which has a stem and another branch comming off it

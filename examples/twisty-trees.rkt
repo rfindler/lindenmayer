@@ -60,6 +60,7 @@ h=2000
 rot=-240
 dist=4.6
 ===============
+#| From ABOP |#
 (provide (all-defined-out)
          (all-from-out lindenmayer/3d-turtle))
 (require lindenmayer/3d-turtle
