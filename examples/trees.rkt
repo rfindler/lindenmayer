@@ -49,9 +49,12 @@ shift=-3
 ## axiom ##
 A(1,0.1)
 ## rules ##
-A(l,w) → !(w)F(l)[&(a)B(l*s,w*y)]/(d)A(l*r,w*y)
-B(l,w) → !(w)F(l)[-(b)$C(l*s,w*y)]C(l*r,w*y)
-C(l,w) → !(w)F(l)[+(b)$B(l*s,w*y)]B(l*r,w*y)
+A(l,w) -> !(w)F(l)[&(a)B(l*s,w*y)]
+          /(d)A(l*r,w*y)
+B(l,w) -> !(w)F(l)[-(b)$C(l*s,w*y)]
+          C(l*r,w*y)
+C(l,w) -> !(w)F(l)[+(b)$B(l*s,w*y)]
+          B(l*r,w*y)
 ## variables ##
 n=10
 r=0.9

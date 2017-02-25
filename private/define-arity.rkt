@@ -10,13 +10,15 @@
            (syntax-parse stx
              [(use-site-f actual (... ...))
               (define actual-args-length
-                (syntax-length #'(actual (... ...))))
+                (stx-len #'(actual (... ...))))
               (define formal-args-length
-                #,(syntax-length #'(formal ...)))
-              (unless (= actual-args-length formal-args-length)
-                (signal-length-error formal-args-length
-                                     actual-args-length
-                                     #'def-site-f #'use-site-f))
+                #,(stx-len #'(formal ...)))
+              (unless (= actual-args-length
+                         formal-args-length)
+                (signal-length-error
+                 formal-args-length
+                 actual-args-length
+                 #'def-site-f #'use-site-f))
               #'(f-proc actual (... ...))]))
          (define (f-proc formal ...) e))]))
 ;; STOP
@@ -33,7 +35,7 @@
                       use-site-f
                       (list def-site-f)))
 
-(define-for-syntax (syntax-length stx) (length (syntax->list stx)))
+(define-for-syntax (stx-len stx) (length (syntax->list stx)))
 
 (module+ test
   (require rackunit)
