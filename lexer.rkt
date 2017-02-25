@@ -17,10 +17,15 @@
   (post-hyph #f #f))
 
 (define (in-param0 mode data)
+  (define return-mode
+    (cond
+      [(equal? mode 'axiom-nta) 'axiom-axm]
+      [(equal? mode 'rules-ntr) 'rules-rhs]
+      [else mode]))
   (cond
     [(equal? data '(#"("))
-     (values (in-param mode data) 'parenthesis '|(|)]
-    [else (in-param mode data)]))
+     (values (in-param return-mode data) 'parenthesis '|(|)]
+    [else (in-param return-mode data)]))
 
 (struct post-hyph (mode data) #:transparent)
 (struct errstate (mode data) #:transparent)
@@ -127,9 +132,9 @@
    ║ rules-lhs ║                                    ║             ║             ║ #f        ║
    ║ vars-lhs  ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ axiom-axm ║                                    ║             ║             ║           ║
+   ║ axiom-nta ║                                    ║             ║             ║           ║
    ║ rules-arr ║ #rx"^(\\()"                        ║ parenthesis ║ ,in-param0  ║           ║
-   ║ rules-rhs ║                                    ║             ║             ║           ║
+   ║ rules-ntr ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ any-new   ║                                    ║             ║ any-new     ║           ║
    ╠═══════════╣                                    ║             ╠═════════════╣           ║
@@ -141,11 +146,17 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
    ║ any-new   ║ #rx"^#lang[^\n]*(\n|$)"            ║ other       ║ any-new     ║ any-new   ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ axiom-new ║ #px"^[^\\s#(]+"                    ║ symbol      ║ axiom-axm   ║           ║
+   ║ axiom-new ║ #px"^[^\\s#(]+"                    ║ symbol      ║ axiom-nta   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ axiom-axm ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╣ axiom-axm   ║ axiom-new ║
-   ║ axiom-axm ║ #px"^[^\\s#()]+"                   ║ symbol      ║             ║           ║
+   ║ axiom-nta ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╣ axiom-nta   ║           ║
+   ║ axiom-nta ║ #px"^[^\\s#()]+"                   ║ symbol      ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ axiom-nta ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║ axiom-new ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ axiom-axm ║ #rx"^[ \t]+"                       ║ white-space ║ axiom-axm   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ axiom-axm ║ #px"^[^\\s#()]+"                   ║ symbol      ║ axiom-nta   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
@@ -164,20 +175,30 @@
    ║ rules-col ║ #px"^((?!->|→)[^()\\d \t\n])+"     ║ symbol      ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-con ║ #px"^[ \t]+"                       ║ white-space ║             ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╣             ║ rules-lhs ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╣             ║           ║
    ║ rules-con ║ #px"^\\d+"                         ║ constant    ║ rules-con   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╣             ║           ║
    ║ rules-con ║ #px"^((?!->|→)[^()\\d \t\n])+"     ║ symbol      ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-con ║ #rx"^(->|→)"                       ║ parenthesis ║ rules-rhs   ║           ║
+   ║ rules-con ║ #rx"^(->|→)"                       ║ parenthesis ║ rules-rhs   ║ rules-lhs ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ rules-rhs ║ #rx"^[ \t]+"                       ║ white-space ║ rules-rhs   ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ rules-rhs ║ #rx"^((?!->|→)[^][ \t\n()#])+"     ║             ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ║             ║           ║
+   ║ rules-rhs ║ #rx"^\\["                          ║ symbol      ║ rules-ntr   ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ║             ║           ║
+   ║ rules-rhs ║ #rx"^\\]"                          ║             ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
+   ║ rules-rhs ║ #rx"^\n[ \t]*"                     ║ white-space ║ rules-lhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-rhs ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╣             ║           ║
-   ║ rules-rhs ║ #rx"^((?!->|→)[^][ \t\n()#])+"     ║             ║             ║           ║
-   ╠═══════════╬════════════════════════════════════╣             ║ rules-rhs   ║           ║
-   ║ rules-rhs ║ #rx"^\\["                          ║ symbol      ║             ║           ║
+   ║ rules-ntr ║ #rx"^((?!->|→)[^][ \t\n()#])+"     ║             ║             ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ║ rules-ntr   ║           ║
+   ║ rules-ntr ║ #rx"^\\["                          ║ symbol      ║             ║           ║
    ╠═══════════╬════════════════════════════════════╣             ║             ║           ║
-   ║ rules-rhs ║ #rx"^\\]"                          ║             ║             ║           ║
+   ║ rules-ntr ║ #rx"^\\]"                          ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ rules-rhs ║ #rx"^\n[ \t]*"                     ║ white-space ║ rules-lhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
@@ -264,7 +285,8 @@
                   [(new-state) (values (rule-output rule) new-state #f)]
                   [(new-state new-output) (values new-output new-state #f)]
                   [(new-state new-output new-info) (values new-output new-state new-info)]))]
-              [(and (equal? state 'rules-rhs) (assoc matched-str '((#"[" . |[|) (#"]" . |]|))))
+              [(and (member state '(rules-rhs rules-ntr))
+                    (assoc matched-str '((#"[" . |[|) (#"]" . |]|))))
                => (λ (paren-info) (values (rule-output rule) to-state (cdr paren-info)))]
               [else (values (rule-output rule) to-state #f)]))
           (make-token-values matched-str new-output new-state new-paren)])]
@@ -310,10 +332,10 @@
    (test-lexer 'axiom-new " F X  \t\n")
    `((axiom-new    white-space      " ")
      (axiom-new    symbol           "F")
-     (axiom-axm    white-space      " ")
-     (axiom-axm    symbol           "X")
-     (axiom-axm    white-space      "  \t")
-     (axiom-axm    white-space      "\n")
+     (axiom-nta    white-space      " ")
+     (axiom-nta    symbol           "X")
+     (axiom-nta    white-space      "  \t")
+     (axiom-nta    white-space      "\n")
      axiom-new))
 
   (check-equal?
@@ -323,7 +345,7 @@
      (rules-arr    white-space      " ")
      (rules-arr    parenthesis      "->")
      (rules-rhs    symbol           "AB")
-     (rules-rhs    white-space      "\n")
+     (rules-ntr    white-space      "\n")
      rules-lhs))
 
   (check-equal?
@@ -331,7 +353,7 @@
    `((rules-lhs    symbol           "X")
      (rules-arr    parenthesis      "→")
      (rules-rhs    symbol           "Y")
-     (rules-rhs    white-space      "\n ")
+     (rules-ntr    white-space      "\n ")
      rules-lhs))
 
   (check-equal?
@@ -367,20 +389,20 @@
      axiom-axm))
 
   (for ([state (in-list '(axiom-new rules-lhs rules-rhs))])
-    (define next-state
+    (define-values (next-state return-state)
       (match state
-        ['axiom-new 'axiom-axm]
-        ['rules-lhs 'rules-arr]
-        ['rules-rhs 'rules-rhs]))
+        ['axiom-new (values 'axiom-nta 'axiom-axm)]
+        ['rules-lhs (values 'rules-arr 'rules-arr)]
+        ['rules-rhs (values 'rules-ntr 'rules-rhs)]))
     (check-equal?
      (test-lexer state "R(3+x *5,)")
-     `((,state                         symbol           "R")
-       (,next-state                    parenthesis      "(")
-       (,(in-param next-state '(#"(")) constant         "3")
-       (,(in-param next-state '(#"(")) symbol           "+x")
-       (,(in-param next-state '(#"(")) white-space      " ")
-       (,(in-param next-state '(#"(")) symbol           "*")
-       (,(in-param next-state '(#"(")) constant         "5")
-       (,(in-param next-state '(#"(")) parenthesis      ",")
-       (,(in-param next-state '(#"(")) parenthesis      ")")
-       ,next-state))))
+     `((,state                           symbol           "R")
+       (,next-state                      parenthesis      "(")
+       (,(in-param return-state '(#"(")) constant         "3")
+       (,(in-param return-state '(#"(")) symbol           "+x")
+       (,(in-param return-state '(#"(")) white-space      " ")
+       (,(in-param return-state '(#"(")) symbol           "*")
+       (,(in-param return-state '(#"(")) constant         "5")
+       (,(in-param return-state '(#"(")) parenthesis      ",")
+       (,(in-param return-state '(#"(")) parenthesis      ")")
+       ,return-state))))
