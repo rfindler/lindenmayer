@@ -11,8 +11,8 @@ B(w) → [!(w) ^^F(l) >(δ*6) A(w)]
 n=13
 δ=18
 
-r=0.3
-s=-0.047
+r=0.5
+s=-0.079
 
 l=1.8
 
@@ -32,7 +32,7 @@ n=14
 θ=26
 δ=20
 
-r=0.3
+r=0.4
 s=0.65
 
 l=1.8
@@ -55,7 +55,7 @@ h=2000
 (define > /)
 
 (define (start variables)
-  (make-turtle (dir 0 -10 0) +y +z))
+  (make-turtle (dir 0 -15 0) +y +z))
 
 (define camera (basis 'camera
                       (point-at (pos 0 -0.5 18) (pos 0 0 0))))
