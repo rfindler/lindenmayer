@@ -40,10 +40,12 @@ h=2000
 (define (finish turtles variables)
   (define dist (hash-ref variables 'dist))
   (define v (angles->dir (hash-ref variables 'rot) 00))
-  (define camera (basis 'camera (point-at (pos+ origin (dir-scale v dist)) (pos 0 0 .01) #:up +x)))
+  (define cloc (pos+ origin (dir-scale v dist)))
+  (define camera (basis 'camera (point-at cloc (pos 0 0 .01) #:up +x)))
 
   (set-rendering-config!
    (hash-ref variables 'w)
    (hash-ref variables 'h)
+   #:background (rgba "DarkGreen")
    #:ambiance? #t #:debug? #t)
-  (combine camera (draw turtles (vector (rgba "blue") (rgba "green")))))
+  (combine (light cloc(emitted "white" 100)) (draw turtles (vector (rgba "white") (rgba "green")))))

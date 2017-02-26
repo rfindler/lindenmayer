@@ -165,8 +165,9 @@
   (make-parameter (list (vector default-color) default-emitted)))
 (define (set-rendering-config! width height #:ambiance? [ambiance? #f]
                                #:debug? [debug? #f]
+                               #:background [background (rgba "white" 0)]
                                #:emit [emit default-emitted])
-  (current-pict3d-background (rgba "white" 0))
+  (current-pict3d-background background)
   (current-pict3d-add-indicators? debug?)
   (current-pict3d-add-grid?)
   (cond
