@@ -6,12 +6,13 @@ A(1)
 
 ## rules ##
 
-A(s) → F(l*s) [ -(5) A(s*c) ] [ +(1) A(s*c) ]
+A(s) → !(s*d) F(l*s) [ -(5) A(s*c) ] [ +(1) A(s*c) ]
 
 ## variables ##
 
 l = 94
 c = 0.7
+d = 10
 θ = 10
 
 n = 12
@@ -23,16 +24,17 @@ A(1)
 
 ## rules ##
 
-A(s) → F(l*s) [ -(5) B(s*c) ] [ +(1) D(s*c) ]
-B(s) → F(l*s) [ +(5) A(s*c) ] [ -(1) C(s*c) ]
-C(s) → F(l*s) [ -(5) E(s*c) ] [ +(1) A(s*c) ]
-D(s) → F(l*s) [ +(5) B(s*c) ] [ -(1) E(s*c) ]
-E(s) → F(l*s) [ -(5) A(s*c) ] [ +(1) C(s*c) ]
+A(s) → !(s*d) F(l*s) [ -(5) B(s*c) ] [ +(1) D(s*c) ]
+B(s) → !(s*d) F(l*s) [ +(5) A(s*c) ] [ -(1) C(s*c) ]
+C(s) → !(s*d) F(l*s) [ -(5) E(s*c) ] [ +(1) A(s*c) ]
+D(s) → !(s*d) F(l*s) [ +(5) B(s*c) ] [ -(1) E(s*c) ]
+E(s) → !(s*d) F(l*s) [ -(5) A(s*c) ] [ +(1) C(s*c) ]
 
 ## variables ##
 
 l = 100
 c = 0.7
+d = 10
 θ = 10
 
 n = 12

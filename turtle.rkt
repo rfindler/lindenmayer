@@ -12,6 +12,10 @@
   (cons (turn (:* factor -1 (hash-ref variables 'θ 90)) (car turtles)) (cdr turtles)))
 (define (+ turtles variables [factor 1] . ignored)
   (cons (turn (:* factor (hash-ref variables 'θ 90)) (car turtles)) (cdr turtles)))
+(define (! turtles variables [width 1])
+  ;; to be un-commented later
+  #;(cons (set-pen-width (car turtles) width) (cdr turtles))
+  turtles)
 (define (|[| turtles variables) (list* (car turtles) (turtle-state (car turtles)) (cdr turtles)))
 (define (|]| turtles variables)
   (cons (restore-turtle-state (car turtles) (cadr turtles))
