@@ -4,24 +4,24 @@
 
 (define-syntax (define/arity stx)
   (syntax-parse stx 
-    [(_ (def-site-f formal:id ...) e)
+    [(_ (def-f formal:id ...) e)
      #`(begin
-         (define-syntax (def-site-f stx)
+         (define-syntax (def-f stx)
            (syntax-parse stx
-             [(use-site-f formal ...)
+             [(use-f formal ...)
               #'(f-proc formal ...)]
-             [(use-site-f actual (... ...))
+             [(use-f actual (... ...))
               (signal-length-error
                #'(actual (... ...))
                #'(formal ...)
-               #'def-site-f #'use-site-f)]))
+               #'def-f #'use-f)]))
          (define (f-proc formal ...) e))]))
 ;; STOP
 
-(define-for-syntax (signal-length-error formal-args actual-args def-site-f use-site-f)
+(define-for-syntax (signal-length-error formal-args actual-args def-f use-f)
   (define formal-args-length (stx-len formal-args))
   (define actual-args-length (stx-len actual-args))
-  (define f (syntax-e def-site-f))
+  (define f (syntax-e def-f))
   (raise-syntax-error f
                       (format
                        "expected ~a arguments for ~a, found ~a"
@@ -29,8 +29,8 @@
                        f
                        actual-args-length)
                       #f
-                      use-site-f
-                      (list def-site-f)))
+                      use-f
+                      (list def-f)))
 
 (define-for-syntax (stx-len stx) (length (syntax->list stx)))
 
