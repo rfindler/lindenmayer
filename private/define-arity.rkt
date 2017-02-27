@@ -15,7 +15,8 @@
                #'(actual (... ...))
                #'(formal ...)
                #'def-f #'use-f)]))
-         (define (f-proc formal ...) e))]))
+         (define (f-proc formal ...)
+           e))]))
 ;; STOP
 
 (define-for-syntax (signal-length-error formal-args actual-args def-f use-f)
