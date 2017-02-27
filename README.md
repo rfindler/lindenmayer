@@ -1,8 +1,12 @@
 # #lang lindenmayer
 
-to set up, go to the parent directory of the git checkout and run
+Install this pkg with
+
 ```
-raco pkg install lindenmayer/
+raco pkg install lindenmayer
 ```
 
-This requires a snapshot build of Racket.
+This requires a
+[snapshot build](https://plt.eecs.northwestern.edu/snapshots/)
+of Racket in order to get a recent version of the turtle graphics
+library.
