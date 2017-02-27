@@ -51,6 +51,10 @@
                      [label "Create New Non-Terminal"]
                      [parent refactor-menu]
                      [callback (λ (item evt) (make-new-non-terminal))])
+                (new menu-item%
+                     [label "Replace All Occurrences With New Non-Terminal"]
+                     [parent refactor-menu]
+                     [callback (λ (item evt) (make-new-non-terminal #t))])
                 (send refactor-menu enable #t)))
 
             (define/private (get-refactor-info)
@@ -68,7 +72,7 @@
                    (interval-map-ref refactor-info start #f)))
 
 
-            (define/private (make-new-non-terminal [lift-all #f])
+            (define/private (make-new-non-terminal [lift-all? #f])
               (define startb (box #f))
               (define endb (box #f))
               (send this get-position startb endb)
@@ -76,9 +80,28 @@
               (define end (unbox endb))
               (define info (get-refactor-info))
               (when info
-                (match-define (cons rules-start
-                                    (list position-map (list (cons symbol-vecs position-vecs) ...)))
-                  info)
+                (define frame
+                    (let loop ([canvas (send this get-canvas)])
+                      (cond
+                        [(not canvas) canvas]
+                        [(or (is-a? canvas frame%)
+                             (is-a? canvas dialog%))
+                         canvas]
+                        [else (loop (send canvas get-parent))])))
+                (define new-nt-name
+                  (get-text-from-user "Introduce New Non-Terminal"
+                                      "Non-Terminal Name"
+                                      frame
+                                      #:validate (λ (str) (= 1 (string-length str)))))
+                (define valid-nt-name? (and new-nt-name (= 1 (string-length new-nt-name))))
+                (unless valid-nt-name?
+                    (message-box "Invalid Non-Terminal Name"
+                                 "Non-Terminal names must contain only a single character"
+                                 frame))
+                (when valid-nt-name?
+                  (match-define (cons rules-start
+                                      (list position-map (list (cons symbol-vecs position-vecs) ...)))
+                    info)
               
                 (define selected-ids
                   (let/ec ret
@@ -92,26 +115,31 @@
                          (loop (+ cur span) (cons the-id acc))]
                         [else (list->vector (reverse acc))]))))
                 (when selected-ids
-                  (define frame
-                    (let loop ([canvas (send this get-canvas)])
-                      (cond
-                        [(not canvas) canvas]
-                        [(or (is-a? canvas frame%)
-                             (is-a? canvas dialog%))
-                         canvas]
-                        [else (loop (send canvas get-parent))])))
-
-                  (define new-nt-name
-                    (get-text-from-user "Introduce New Non-Terminal"
-                                        "Non-Terminal Name"
-                                        frame
-                                        #:validate (λ (str) (= 1 (string-length str)))))
-                  (unless (and new-nt-name (= 1 (string-length new-nt-name)))
-                    (message-box "Invalid Non-Terminal Name"
-                                 "Non-Terminal names must contain only a single character"
-                                 frame))
-                  (when (and new-nt-name (= 1 (string-length new-nt-name)))
-                    (do-add-new-non-terminal new-nt-name start end rules-start)))))
+                  (cond
+                    [lift-all?
+                     (define selected-len (vector-length selected-ids))
+                     (define locs-to-replace
+                       (apply append
+                              (for/list ([rule-str (in-list (reverse symbol-vecs))]
+                                         [rule-posns (in-list (reverse position-vecs))])
+                                (define instance-indices (reverse (find-all rule-str selected-ids)))
+                                (for/list ([i (in-list instance-indices)])
+                                  (match-define (cons spos sspan) (vector-ref rule-posns i))
+                                  (match-define (cons epos espan)
+                                    (vector-ref rule-posns (sub1 (+ i selected-len))))
+                                  (list spos (+ epos espan))))))
+                     (begin-edit-sequence)
+                     (define selected (send this get-text start end))
+                     (for ([loc (in-list locs-to-replace)])
+                       (match-define (list start end) loc)
+                       (send this delete start end)
+                       (send this insert new-nt-name start))
+                     (send this insert "\n" rules-start)
+                     (send this insert selected rules-start)
+                     (send this insert (string-append new-nt-name " -> ") rules-start)
+                     (end-edit-sequence)]
+                    [else
+                     (do-add-new-non-terminal new-nt-name start end rules-start)])))))
 
             (define (do-add-new-non-terminal new-nt-name start end rules-start)
               ;(printf "RULES-START: ~a\n" rules-start)

@@ -12,8 +12,7 @@
   (syntax-property stx rule-property-key))
 
 ;; traverse fully expanded syntax and produce a list suitable for building
-;; an interval-map. This maps intervals of if expressions to information
-;; about their syntax to swap the then/else branches and negate the test
+;; an interval-map.
 (define (build-refactor-info stx source)
   (define refactor-info '())
   (let loop ([stx stx])

@@ -45,7 +45,7 @@
              [indicies null])
     (define i (kmp-search s w cur eql table))
     (cond
-      [i (loop (add1 i) (cons i indicies))]
+      [i (loop (+ i (vector-length w)) (cons i indicies))]
       [else (reverse indicies)])))
 
 
