@@ -6,7 +6,7 @@
                "data-lib"
                "drracket-plugin-lib"
                "gui-lib"
-               "htdp-lib"
+               ["htdp-lib" #:version "1.5"]
                "parser-tools-lib"
                "pict-lib"
                "pict3d"
