@@ -162,7 +162,7 @@
   (make-extras pt d p))
 
 (define current-texturing
-  (make-parameter (list (vector default-color) default-emitted)))
+  (make-parameter (list default-color default-emitted)))
 (define (set-rendering-config! width height #:ambiance? [ambiance? #f]
                                #:debug? [debug? #f]
                                #:background [background (rgba "white" 0)]
@@ -172,11 +172,11 @@
   (current-pict3d-add-grid?)
   (cond
     [ambiance?
-     (current-texturing (list (vector default-color) emit))
+     (current-texturing (list default-color emit))
      (current-pict3d-ambient (emitted "white" 1))
      (current-pict3d-add-sunlight? #t)]
     [else
-     (current-texturing (list (vector (rgba "black")) (emitted "black" 0)))
+     (current-texturing (list (rgba "black") (emitted "black" 0)))
      (current-pict3d-ambient (emitted "black" 0))
      (current-pict3d-add-sunlight? #f)])
   (current-pict3d-width width)
