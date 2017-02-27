@@ -14,3 +14,5 @@
                "typed-racket-lib"))
 (define build-deps '("2d-lib"
                      "rackunit-lib"))
+
+(define pkg-desc "A Lindenmayer system DSL")
