@@ -2,9 +2,10 @@
 
 ## axiom ##
 X
+
 ## rules ##
-X -> F-[Y]+F[+FX]-X
 Y -> [X]+X
+X -> F-[Y]+F[+FX]-X
 F -> FF
 ## variables ##
 n=8
