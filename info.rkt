@@ -15,4 +15,6 @@
 (define build-deps '("2d-lib"
                      "rackunit-lib"))
 
+(define scribblings '(("scribblings/lindenmayer.scrbl" ())))
+
 (define pkg-desc "A Lindenmayer system DSL")

@@ -3,6 +3,7 @@
  (rename-out
   [out:make-turtle make-turtle]
   [out:move move])
+ turtle-state?
  shift
  move/no-poly
  yaw
