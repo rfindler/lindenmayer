@@ -13,7 +13,10 @@
                "syntax-color-lib"
                "typed-racket-lib"))
 (define build-deps '("2d-lib"
-                     "rackunit-lib"))
+                     "rackunit-lib"
+                     "pict-doc"
+                     "racket-doc"
+                     "scribble-lib"))
 
 (define scribblings '(("scribblings/lindenmayer.scrbl" ())))
 
