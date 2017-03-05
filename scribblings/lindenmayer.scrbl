@@ -13,7 +13,7 @@
 
 The Lindenmayer language provides a language for running and interpreting Lindenmayer Systems.
 
-In general L-systems are useful modeling plant growth, procedural content generation, and making
+In general L-systems are useful for modeling plant growth, procedural content generation, and making
 pretty pictures:
 
 @(define-runtime-path flowery-bush.png "../screenshots/flowery-bush.png")
