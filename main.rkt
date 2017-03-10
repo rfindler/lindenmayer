@@ -237,7 +237,11 @@
              (failed "expected either `=' in the variable assignment"))
            (define split (regexp-split #rx"=" (remove-whitespace l)))
            (unless (= 2 (length split)) (failed "expected only one `='"))
-           (define key (string->symbol (list-ref split 0)))
+           (define dummy-to-get-original-property (read-syntax name (open-input-string "x")))
+           (define key (datum->syntax #f
+                                      (string->symbol (list-ref split 0))
+                                      (vector name line col pos (string-length (list-ref split 0)))
+                                      dummy-to-get-original-property))
            (define val (read (open-input-string (list-ref split 1)))) ;; TODO: better error checking
            (update-section (cons (list key val) (section-value '())))
            (loop current-section #f)]
