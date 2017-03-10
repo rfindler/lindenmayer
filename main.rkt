@@ -235,12 +235,23 @@
            (handle-pending-rule)
            (unless (regexp-match? #rx"=" l)
              (failed "expected either `=' in the variable assignment"))
-           (define split (regexp-split #rx"=" (remove-whitespace l)))
+           (define split (regexp-split #rx"=" l))
            (unless (= 2 (length split)) (failed "expected only one `='"))
+           (define var-m (regexp-match #rx"^( *)([^ ]*)( *)$" (list-ref split 0)))
+           (unless (and var-m
+                        (not (equal? (list-ref var-m 2) "")))
+             (raise-read-error
+              "variable names cannot have spaces"
+              name line col pos (string-length (list-ref split 0))))
            (define dummy-to-get-original-property (read-syntax name (open-input-string "x")))
+           (define leading-space (string-length (list-ref var-m 1)))
+           (define var-name (list-ref var-m 2))
            (define key (datum->syntax #f
-                                      (string->symbol (list-ref split 0))
-                                      (vector name line col pos (string-length (list-ref split 0)))
+                                      (string->symbol var-name)
+                                      (vector name line
+                                              (+ col leading-space)
+                                              (+ pos leading-space)
+                                              (string-length var-name))
                                       dummy-to-get-original-property))
            (define val (read (open-input-string (list-ref split 1)))) ;; TODO: better error checking
            (update-section (cons (list key val) (section-value '())))
