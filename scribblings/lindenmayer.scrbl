@@ -135,7 +135,7 @@ shift=-3.2
 (provide (all-defined-out)
          (all-from-out lindenmayer/3d-turtle))
 (require lindenmayer/3d-turtle
-         (except-in pict3d move))
+         pict3d)
 
 (define (A state variables l w) state)
 (define (B state variables l w) state)
