@@ -117,7 +117,7 @@
                     ,@(apply
                        append
                        (for/list ([pr (in-list (hash-ref sections 'variables '()))])
-                         (list `',(list-ref pr 0) (list-ref pr 0)))))
+                         (list `',(syntax-e (list-ref pr 0)) (list-ref pr 0)))))
                    ,(for/list ([c (in-list (hash-ref sections 'axiom))])
                       (sym->app c))
                    ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
@@ -133,7 +133,7 @@
                  ,n :::start :::finish
                  (quote
                   ,(for/hash ([pr (in-list (hash-ref sections 'variables '()))])
-                     (values (list-ref pr 0) (list-ref pr 1))))
+                     (values (syntax-e (list-ref pr 0)) (list-ref pr 1))))
                  ,(for/list ([c (in-list (hash-ref sections 'axiom))])
                     (sym-id c))
                  ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
