@@ -7,7 +7,7 @@
                      pict3d
                      lindenmayer/3d-turtle))
 
-@title{@tt{#lang lindenmayer}, a language for L-Systems}
+@title[#:style '(toc)]{@tt{#lang lindenmayer}, a language for L-Systems}
 
 @defmodulelang[lindenmayer]
 
@@ -210,7 +210,7 @@ Has the @racket[A] and @racket[B] rules dispatch on the parameter @racket[d], to
 Conditionals are placed before @racketidfont["->"], and after a @racketidfont[":"]. Conditions can be joined by an
 @racket[&]. Currently supported comparisons are: @racket[≠ =< > ≤ ≥].
 
-
+@include-section["simple.scrbl"]
 
 @include-section["turtles.scrbl"]
 @include-section["3d-turtle.scrbl"]

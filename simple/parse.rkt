@@ -42,7 +42,7 @@
       (define (finish val) (newline))
       ,@(for/list ([nt (in-list nts)])
           `(define (,nt value) (display ',nt)))
-      (l-system
+      (lindenmayer-system
        (void) finish ,iterations
        ,(for/list ([c (in-list (hash-ref sections 'axiom))])
           (sym-id c))
@@ -205,7 +205,7 @@
                    (require lindenmayer/simple/compile)
                    (define (finish val) (newline))
                    (define (A value) (display 'A))
-                   (l-system (void) finish 4 (A) (A -> A A))))
+                   (lindenmayer-system (void) finish 4 (A) (A -> A A))))
   
   (check-equal? (try parse-sections "# axiom #\n\n\nA\n\n# rules #\nA->AA\nB->BA")
                 (hash 'rules '(#(struct:rule #(struct:sym A ())

@@ -18,6 +18,6 @@
                      "racket-doc"
                      "scribble-lib"))
 
-(define scribblings '(("scribblings/lindenmayer.scrbl" ())))
+(define scribblings '(("scribblings/lindenmayer.scrbl" (multi-page))))
 
 (define pkg-desc "A Lindenmayer system DSL")

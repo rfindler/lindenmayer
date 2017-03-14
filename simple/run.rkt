@@ -1,5 +1,5 @@
 #lang typed/racket
-(provide run-lindenmayer cell)
+(provide run-lindenmayer cell Lindenmayer-Dag)
 
 (struct (α) cell ([item : (Lindenmayer-Dag α)]) #:mutable)
 

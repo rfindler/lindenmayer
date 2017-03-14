@@ -1,6 +1,6 @@
 #lang racket/base
 
-(require "../parse.rkt" "../../lexer.rkt")
+(require "../parse.rkt" "../lex.rkt")
 
 (provide
  (rename-out
@@ -14,5 +14,5 @@
 (define (-get-info port source line col position)
   (λ (key default)
     (case key
-      [(color-lexer) (wrap-lexer #f)]
+      [(color-lexer) lindenmayer-lexer]
       [else default])))
