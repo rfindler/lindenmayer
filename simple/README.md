@@ -50,9 +50,6 @@ syntax accepts weights, e.g.:
                       (B -> A))
 ```
 
-It is a little bit simpler to make every rule come with weights (but
-not necessary).
-
 Adjusting `lindenmayer-system` has two parts: first change the
 checking done in `no-duplicates` so that it allows duplicates (when
 there are weights specified) and collects rules that have the same
