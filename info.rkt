@@ -16,7 +16,11 @@
                      "rackunit-lib"
                      "pict-doc"
                      "racket-doc"
-                     "scribble-lib"))
+                     "scribble-lib"
+                     "htdp-doc"
+                     "syntax-color-doc"
+                     "typed-racket-doc"
+                     "typed-racket-more"))
 
 (define scribblings '(("scribblings/lindenmayer.scrbl" (multi-page))))
 
