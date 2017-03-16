@@ -10,10 +10,9 @@
 (define-syntax (lindenmayer-system stx)
   (syntax-parse stx
     [(_ start finish iterations (C:id ...) (A:id -> B:id ...) ...)
-     (no-duplicates (syntax->list #'(A ...)))
-     (with-syntax ([(T ...) (find-terminals #'(B ... ... C ...) #'(A ...))])
-       #'(let ([A (cell A)] ...
-               [T (cell T)] ...)
+     (no-duplicate-ids (syntax->list #'(A ...)))
+     (with-syntax ([(S ...) (remove-duplicate-ids #'(A ... B ... ... C ...))])
+       #'(let ([S (cell S)] ...)
            (finish
             (run-lindenmayer iterations
                              (cell (list C ...))
@@ -23,18 +22,16 @@
 
 (define-syntax (rule stx)
   (syntax-parse stx
-    [(_ (non-terminals ...) (rhs ...))
+    [(_ (non-terminal ...) (symbol ...))
      #`(λ (lst)
          (match lst
-           [(list non-terminals ...)
-            (list rhs ...)]))]))
+           [(list non-terminal ...)
+            (list symbol ...)]))]))
 
-(define-for-syntax (no-duplicates ids [consider-id?s (map (λ (x) #t) ids)])
+(define-for-syntax (no-duplicate-ids ids)
   (define table (make-free-id-table))
-  (for ([id (in-list ids)]
-        [consider-id? (in-list consider-id?s)])
-    (when consider-id?
-      (free-id-table-set! table id (cons id (free-id-table-ref table id '())))))
+  (for ([id (in-list ids)])
+    (free-id-table-set! table id (cons id (free-id-table-ref table id '()))))
   (for ([(k v) (in-dict table)])
     (unless (= 1 (length v))
       (raise-syntax-error
@@ -46,20 +43,25 @@
        (car ids)
        (cdr ids)))))
 
-(define-for-syntax (find-terminals candidates non-terminals)
+(define-for-syntax (remove-duplicate-ids symbols)
   (define table (make-free-id-table))
-  (for ([non-terminal (in-list (syntax->list non-terminals))])
-    (free-id-table-set! table non-terminal #t))
-  (define result (make-free-id-table))
-  (for ([candidate (in-list (syntax->list candidates))])
-    (unless (free-id-table-ref table candidate #f)
-      (free-id-table-set! result candidate #t)))
-  (for/list ([(id _) (in-dict result)])
-    id))
+  (for ([symbol-id (in-list (syntax->list symbols))])
+    (free-id-table-set! table symbol-id #t))
+  (for/list ([(symbol-id _) (in-dict table)])
+    symbol-id))
 
 (module+ test
   (require rackunit)
 
+  ;; test cases for the `rule` macro; checking
+  ;; that it builds an appropriate function
+  (let ()
+    (define a-rule (rule (A B C) (A C A)))
+    (check-equal? (a-rule (list 'a 'b 'c))
+                  (list 'a 'c 'a))
+    (check-equal? (a-rule (list 1 2 3))
+                  (list 1 3 1)))
+  
   ;; test case for the algae system
   (let ()
     (define (A so-far) (cons 'A so-far))
@@ -71,6 +73,6 @@
   ;; test case to make sure duplicate check is correct
   (check-exn
    (λ (x) (and (exn:fail:syntax? x)
-               (regexp-match #rx"expected only one rule for.* for A" (exn-message x))))
+               (regexp-match? #rx"expected only one rule for.* for A" (exn-message x))))
    (λ ()
      (expand #'(lindenmayer-system start finish 4 (A) (A -> A B) (A -> A))))))
