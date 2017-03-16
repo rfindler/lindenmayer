@@ -44,15 +44,23 @@
   (for ([i (in-range rule-count)])
     (for ([from-state (hash-ref cell-table (list 0 i))])
       (hash-set! rule-table from-state '())))
+
+
+  (define (pick j i)
+    (define eles (hash-ref cell-table (list j i)))
+    (unless (pair? eles)
+      (error 'make-lexer-table "expected something in cell (~a,~a) but found nothing"
+             i j))
+    (car eles))
   (for ([i+1 (in-range rule-count 0 -1)])
     (define i (- i+1 1))
     (for ([from-state (hash-ref cell-table (list 0 i))])
       (hash-set! rule-table from-state
                  (cons
-                  (rule (first (hash-ref cell-table (list 1 i)))
-                        (first (hash-ref cell-table (list 2 i)))
-                        (first (hash-ref cell-table (list 3 i)))
-                        (first (hash-ref cell-table (list 4 i))))
+                  (rule (pick 1 i)
+                        (pick 2 i)
+                        (pick 3 i)
+                        (pick 4 i))
                   (hash-ref rule-table from-state)))))
   rule-table)
 
@@ -118,41 +126,19 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ rules-lhs ║ #rx"^((?!->|→)[^ \t\n()#])+"       ║ symbol      ║ rules-ntl   ║           ║
+   ║ rules-lhs ║ #rx"^((?!->|→)[^ \t\n])"           ║ symbol      ║ rules-ntl   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-ntl ║ #rx"^((?!->|→)[^ \t\n()#])+"       ║ symbol      ║             ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╣ rules-ntl   ║           ║
-   ║ rules-ntl ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
+   ║ rules-ntl ║ #rx"^[ \t]+"                       ║ white-space ║ rules-ntl   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-ntl ║ #rx"^:"                            ║             ║ rules-col   ║           ║
-   ╠═══════════╬════════════════════════════════════╣ parenthesis ╠═════════════╣           ║
-   ║ rules-ntl ║ #rx"^(->|→)"                       ║             ║ rules-rhs   ║           ║
+   ║ rules-ntl ║ #rx"^(->|→)"                       ║ parenthesis ║ rules-rhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-col ║ #px"^[ \t]+"                       ║ white-space ║ rules-col   ║           ║
+   ║ rules-rhs ║ #rx"^[ \t]+"                       ║ white-space ║ rules-rhs   ║ rules-lhs ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-col ║ #px"^\\d+"                         ║ constant    ║             ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╣ rules-con   ║           ║
-   ║ rules-col ║ #px"^((?!->|→)[^()\\d \t\n])+"     ║ symbol      ║             ║           ║
+   ║ rules-rhs ║ #rx"^((?!->|→)[^ \t\n])+"          ║ symbol      ║ rules-rhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-con ║ #px"^[ \t]+"                       ║ white-space ║             ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╣             ║ rules-lhs ║
-   ║ rules-con ║ #px"^\\d+"                         ║ constant    ║ rules-con   ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╣             ║           ║
-   ║ rules-con ║ #px"^((?!->|→)[^()\\d \t\n])+"     ║ symbol      ║             ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-con ║ #rx"^(->|→)"                       ║ parenthesis ║ rules-rhs   ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-rhs ║ #rx"^[ \t]+"                       ║ white-space ║ rules-rhs   ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-rhs ║ #rx"^((?!->|→)[^][ \t\n()#])+"     ║ symbol      ║ rules-ntr   ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-rhs ║ #rx"^\n[ \t]*"                     ║             ║ rules-lhs   ║           ║
-   ╠═══════════╬════════════════════════════════════╣ white-space ╠═════════════╣           ║
-   ║ rules-rhs ║ #rx"^[ \t]+"                       ║             ║ rules-ntr   ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-ntr ║ #rx"^((?!->|→)[^][ \t\n()#])+"     ║ symbol      ║ rules-ntr   ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ rules-rhs ║ #rx"^\n[ \t]*"                     ║ white-space ║ rules-lhs   ║           ║
+   ║ rules-rhs ║ #rx"^\n[ \t]"                      ║             ║ rules-rhs   ║           ║
+   ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
+   ║ rules-rhs ║ #rx"^\n(?=[^ \t])"                 ║ white-space ║ rules-lhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
    ║ vars-lhs  ║ #rx"^[^ \t\n=()#]+"                ║ symbol      ║ vars-equ    ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
@@ -267,7 +253,7 @@
      (rules-ntl    white-space      " ")
      (rules-ntl    parenthesis      "->")
      (rules-rhs    symbol           "AB")
-     (rules-ntr    white-space      "\n")
+     (rules-rhs    white-space      "\n")
      rules-lhs))
 
   (check-equal?
@@ -275,19 +261,19 @@
    `((rules-lhs    symbol           "X")
      (rules-ntl    parenthesis      "→")
      (rules-rhs    symbol           "Y")
-     (rules-ntr    white-space      "\n ")
-     rules-lhs))
+     (rules-rhs    white-space      "\n ")
+     rules-rhs))
 
   (check-equal?
    (test-lexer 'rules-lhs "X→Y\n Z W\n")
    `((rules-lhs    symbol           "X")
      (rules-ntl    parenthesis      "→")
      (rules-rhs    symbol           "Y")
-     (rules-ntr    white-space      "\n ")
-     (rules-lhs    symbol           "Z")
-     (rules-ntl    white-space      " ")
-     (rules-ntl    symbol           "W")
-     (rules-ntl    white-space      "\n")
+     (rules-rhs    white-space      "\n ")
+     (rules-rhs    symbol           "Z")
+     (rules-rhs    white-space      " ")
+     (rules-rhs    symbol           "W")
+     (rules-rhs    white-space      "\n")
      rules-lhs))
 
   (check-equal?
@@ -325,13 +311,74 @@
      (rules-ntl parenthesis "->")
      (rules-rhs white-space " ")
      (rules-rhs symbol     "AB")
-     (rules-ntr white-space "\n")
+     (rules-rhs white-space "\n")
      (rules-lhs symbol      "B")
      (rules-ntl white-space " ")
      (rules-ntl parenthesis "->")
      (rules-rhs white-space " ")
      (rules-rhs symbol      "A")
-     (rules-ntr white-space "\n")
+     (rules-rhs white-space "\n")
+     rules-lhs))
+
+  (check-equal?
+   (test-lexer
+    #f
+    (string-append
+     "## axiom ##\n"
+     "\n"
+     "A\n"
+     "\n"
+     "## rules ##\n"
+     "\n"
+     "A -> AB\n"
+     "\n"
+     "B -> A\n"))
+   '((#f        comment     "## axiom ##\n")
+     (axiom-new white-space "\n")
+     (axiom-new symbol      "A")
+     (axiom-nta white-space "\n\n")
+     (axiom-new comment     "## rules ##\n")
+     (rules-lhs white-space "\n")
+     (rules-lhs symbol      "A")
+     (rules-ntl white-space " ")
+     (rules-ntl parenthesis "->")
+     (rules-rhs white-space " ")
+     (rules-rhs symbol     "AB")
+     (rules-rhs white-space "\n")
+     (rules-lhs white-space "\n")
+     (rules-lhs symbol      "B")
+     (rules-ntl white-space " ")
+     (rules-ntl parenthesis "->")
+     (rules-rhs white-space " ")
+     (rules-rhs symbol      "A")
+     (rules-rhs white-space "\n")
+     rules-lhs))
+
+  (check-equal?
+   (test-lexer
+    #f
+    (string-append
+     "## axiom ##\n"
+     "\n"
+     "A\n"
+     "\n"
+     "## rules ##\n"
+     "\n"
+     "A 1 -> AB\n"))
+   `((#f        comment     "## axiom ##\n")
+     (axiom-new white-space "\n")
+     (axiom-new symbol      "A")
+     (axiom-nta white-space "\n\n")
+     (axiom-new comment     "## rules ##\n")
+     (rules-lhs white-space "\n")
+     (rules-lhs symbol      "A")
+     (rules-ntl white-space " ")
+     (rules-ntl error "1")
+     (,(errstate 'rules-ntl #t) white-space " ")
+     (rules-ntl parenthesis "->")
+     (rules-rhs white-space " ")
+     (rules-rhs symbol     "AB")
+     (rules-rhs white-space "\n")
      rules-lhs))
 
   )
