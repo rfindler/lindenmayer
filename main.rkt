@@ -249,8 +249,8 @@
            (define key (datum->syntax #f
                                       (string->symbol var-name)
                                       (vector name line
-                                              (+ col leading-space)
-                                              (+ pos leading-space)
+                                              (and col (+ col leading-space))
+                                              (and pos (+ pos leading-space))
                                               (string-length var-name))
                                       dummy-to-get-original-property))
            (define val (read (open-input-string (list-ref split 1)))) ;; TODO: better error checking
