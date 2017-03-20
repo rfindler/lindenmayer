@@ -1,14 +1,7 @@
 #lang 2d racket/base
 (provide lindenmayer-lexer)
-(require racket/match syntax-color/racket-lexer racket/bool racket/list
-         syntax-color/default-lexer)
+(require racket/match racket/list)
 (module+ test (require rackunit))
-
-(define (paren-info mode data)
-  (cond
-    [(assoc data '(((#"[") . |[|) ((#"]") . |]|)))
-     => (λ (info) (values mode 'symbol (cdr info)))]
-    [else mode]))
 
 (struct errstate (mode data) #:transparent)
 
@@ -16,9 +9,6 @@
 (define errnobrk 'errnobrk)
 (define errresum 'errresum)
 (define errnewln 'errnewln)
-
-(define sec-regexp
-  #rx"^(#+)[ \t]*([a-zA-Z]+)[ \t]*(#+)[ \t]*($|\n)")
 
 (define (sec-next state data)
   (define transit '(("axiom" . axiom-new) ("rules" . rules-lhs) ("variables" . vars-lhs)))
@@ -45,13 +35,13 @@
     (for ([from-state (hash-ref cell-table (list 0 i))])
       (hash-set! rule-table from-state '())))
 
-
   (define (pick j i)
     (define eles (hash-ref cell-table (list j i)))
     (unless (pair? eles)
       (error 'make-lexer-table "expected something in cell (~a,~a) but found nothing"
              i j))
     (car eles))
+
   (for ([i+1 (in-range rule-count 0 -1)])
     (define i (- i+1 1))
     (for ([from-state (hash-ref cell-table (list 0 i))])
@@ -67,6 +57,9 @@
 (define (state-reset state)
   (define reset-state (map rule-reset (hash-ref lexer-fsm state)))
   (first (filter (λ (x) x) reset-state)))
+
+(define sec-regexp
+  #rx"^(#+)[ \t]*([a-zA-Z]+)[ \t]*(#+)[ \t]*($|\n)")
 
 ;; FSM transition table of the lexer. The state of the FSM is stored in the
 ;; mode. The error state is handled specially; it must be able to make a
@@ -96,12 +89,6 @@
    ║ rules-lhs ║                                    ║             ║             ║           ║
    ║ vars-lhs  ║                                    ║             ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ axiom-new ║                                    ║             ║             ║           ║
-   ║ axiom-nta ║                                    ║             ║             ║           ║
-   ║ axiom-axm ║ #rx"^(\\[|\\])"                    ║ symbol      ║ ,paren-info ║           ║
-   ║ rules-rhs ║                                    ║             ║             ║           ║
-   ║ rules-ntr ║                                    ║             ║             ║           ║
-   ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ any-new   ║                                    ║             ║ any-new     ║           ║
    ╠═══════════╣                                    ║             ╠═════════════╣           ║
    ║ axiom-new ║                                    ║             ║ axiom-new   ║           ║
@@ -112,17 +99,17 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
    ║ any-new   ║ #rx"^#lang[^\n]*(\n|$)"            ║ other       ║ any-new     ║ any-new   ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ axiom-new ║ #px"^[^][\\s#(]+"                  ║ symbol      ║ axiom-nta   ║           ║
+   ║ axiom-new ║ #px"^[^\\s#]+"                     ║ symbol      ║ axiom-nta   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-nta ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╣ axiom-nta   ║           ║
-   ║ axiom-nta ║ #px"^[^][\\s#()]+"                 ║ symbol      ║             ║           ║
+   ║ axiom-nta ║ #px"^[^\\s#]+"                     ║ symbol      ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-nta ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║ axiom-new ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║ #rx"^[ \t]+"                       ║ white-space ║ axiom-axm   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
-   ║ axiom-axm ║ #px"^[^][\\s#()]+"                 ║ symbol      ║ axiom-nta   ║           ║
+   ║ axiom-axm ║ #px"^[^\\s#]+"                     ║ symbol      ║ axiom-nta   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ axiom-axm ║ #px"^\n\\s*"                       ║ white-space ║ axiom-new   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
@@ -140,7 +127,7 @@
    ╠═══════════╬════════════════════════════════════╣             ╠═════════════╣           ║
    ║ rules-rhs ║ #rx"^\n(?=[^ \t])"                 ║ white-space ║ rules-lhs   ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╬═══════════╣
-   ║ vars-lhs  ║ #rx"^[^ \t\n=()#]+"                ║ symbol      ║ vars-equ    ║           ║
+   ║ vars-lhs  ║ #rx"^[^ \t\n=#]+"                  ║ symbol      ║ vars-equ    ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ vars-equ  ║ #rx"^[ \t]+"                       ║ white-space ║ vars-equ    ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
@@ -148,7 +135,7 @@
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣ vars-lhs  ║
    ║ vars-rhs  ║ #rx"^[ \t]+"                       ║ white-space ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╣ vars-rhs    ║           ║
-   ║ vars-rhs  ║ #rx"^[^ \t\n=#()]+"                ║ constant    ║             ║           ║
+   ║ vars-rhs  ║ #rx"^[^ \t\n=#]+"                  ║ constant    ║             ║           ║
    ╠═══════════╬════════════════════════════════════╬═════════════╬═════════════╣           ║
    ║ vars-rhs  ║ #rx"^\n[ \t]*"                     ║ white-space ║ vars-lhs    ║           ║
    ╚═══════════╩════════════════════════════════════╩═════════════╩═════════════╩═══════════╝))
@@ -380,5 +367,4 @@
      (rules-rhs symbol     "AB")
      (rules-rhs white-space "\n")
      rules-lhs))
-
   )
