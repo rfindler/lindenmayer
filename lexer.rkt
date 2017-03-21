@@ -249,11 +249,14 @@
           #;(printf "parlabel: was: ~a, matched: ~s; new mode: ~a\n" state lexeme new-mode)
           (define-values (wrapped-mode new-data)
             (cond [(equal? new-mode parlabel) (values state data)]
-                  [(and (equal? new-mode paramend) (equal? lexeme #")")) (values (in-param-mode state) '|)|)]
+                  [(and (equal? new-mode paramend) (equal? lexeme #")"))
+                   (values (in-param-mode state) '|)|)]
                   [(equal? new-mode paramend) (values (in-param-mode state) data)]
                   [(equal? new-mode parnewln) (values (state-reset (in-param-mode state)) data)]
                   [(errstate? new-mode) (values state data)]
-                  [else (raise-result-error 'lindenmayer-lexer "(or/c 'parlabel 'paramend 'parnewln errstate?)" new-mode)]))
+                  [else (raise-result-error 'lindenmayer-lexer
+                                            "(or/c 'parlabel 'paramend 'parnewln errstate?)"
+                                            new-mode)]))
           (values lexeme type new-data new-token-start new-token-end backup-delta wrapped-mode)))]
       [(errstate? state)
        (call-with-values
@@ -268,7 +271,9 @@
             (cond [(equal? new-mode errlabel) state]
                   [(equal? new-mode errresum) old-state]
                   [(equal? new-mode errnewln) (state-reset old-state)]
-                  [else (raise-result-error 'lindenmayer-lexer "(or/c 'errlabel 'errresum 'errnewln)" new-mode)]))
+                  [else (raise-result-error 'lindenmayer-lexer
+                                            "(or/c 'errlabel 'errresum 'errnewln)"
+                                            new-mode)]))
           (values lexeme type data new-token-start new-token-end backup-delta wrapped-mode)))]
       [(for/or ([rule (hash-ref lexer-fsm state)])
          (define match-result
@@ -310,20 +315,28 @@
         [else (cons (list mode type (bytes->string/utf-8 lexeme))
                     (run* (if (number? limit) (sub1 limit) #f) new-mode))]))
     (run* #f mode0))
-  (check-equal? (test-lexer 'any-new "# axiom #")           `((any-new   comment "# axiom #") axiom-new))
-  (check-equal? (test-lexer 'axiom-new "## variables ##\n") `((axiom-new comment "## variables ##\n") vars-lhs))
-  (check-equal? (test-lexer 'rules-lhs "# rules #")         `((rules-lhs comment "# rules #") rules-lhs))
-  (check-equal? (test-lexer 'vars-lhs "# axiom #\t")        `((vars-lhs  comment "# axiom #\t") axiom-new))
+  (check-equal? (test-lexer 'any-new "# axiom #")
+                `((any-new   comment "# axiom #") axiom-new))
+  (check-equal? (test-lexer 'axiom-new "## variables ##\n")
+                `((axiom-new comment "## variables ##\n") vars-lhs))
+  (check-equal? (test-lexer 'rules-lhs "# rules #")
+                `((rules-lhs comment "# rules #") rules-lhs))
+  (check-equal? (test-lexer 'vars-lhs "# axiom #\t")
+                `((vars-lhs  comment "# axiom #\t") axiom-new))
 
   (check-equal? (test-lexer 'any-new "---\n")     `((any-new   comment "---\n") any-new))
   (check-equal? (test-lexer 'axiom-new "----\n")  `((axiom-new comment "----\n") any-new))
   (check-equal? (test-lexer 'rules-lhs " ---\n")  `((rules-lhs comment " ---\n") any-new))
   (check-equal? (test-lexer 'vars-lhs "--- \t\n") `((vars-lhs  comment "--- \t\n") any-new))
 
-  (check-equal? (test-lexer 'any-new "===\n")     `((any-new   comment "===\n") ,(post-hyph #f #f)))
-  (check-equal? (test-lexer 'axiom-new "====\n")  `((axiom-new comment "====\n") ,(post-hyph #f #f)))
-  (check-equal? (test-lexer 'rules-lhs " ===\n")  `((rules-lhs comment " ===\n") ,(post-hyph #f #f)))
-  (check-equal? (test-lexer 'vars-lhs "=== \t\n") `((vars-lhs  comment "=== \t\n") ,(post-hyph #f #f)))
+  (check-equal? (test-lexer 'any-new "===\n")
+                `((any-new   comment "===\n") ,(post-hyph #f #f)))
+  (check-equal? (test-lexer 'axiom-new "====\n")
+                `((axiom-new comment "====\n") ,(post-hyph #f #f)))
+  (check-equal? (test-lexer 'rules-lhs " ===\n")
+                `((rules-lhs comment " ===\n") ,(post-hyph #f #f)))
+  (check-equal? (test-lexer 'vars-lhs "=== \t\n")
+                `((vars-lhs  comment "=== \t\n") ,(post-hyph #f #f)))
 
   (check-equal?
    (test-lexer 'any-new "#lang lindenmayer racket\n \t \n")
