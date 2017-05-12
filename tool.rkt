@@ -12,6 +12,11 @@
 
 (define-runtime-path process-syntax.rkt "process-syntax.rkt")
 
+(define-local-member-name
+  lsys-refactor-callback
+  lsys-refactor-build-popup-menu
+  lsys-refactor-key-callback)
+
 (define lsys-refactor-text<%>
   (interface ()
     lsys-refactor-callback
