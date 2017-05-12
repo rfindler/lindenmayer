@@ -115,9 +115,12 @@
                       (cond
                         [(< cur end)
                          (define span+id (hash-ref position-map cur #f))
-                         (unless span+id (ret span+id))
-                         (match-define (cons span the-id) span+id)
-                         (loop (+ cur span) (cons the-id acc))]
+                         (cond
+                           [span+id
+                            (match-define (cons span the-id) span+id)
+                            (loop (+ cur span) (cons the-id acc))]
+                           [else
+                            (loop (+ cur 1) acc)])]
                         [else (list->vector (reverse acc))]))))
                 (when selected-ids
                   (cond
