@@ -59,8 +59,12 @@ h=2000
 (define (start variables)
   (make-turtle (dir 0 -15 0) +y +z))
 
-(define camera (basis 'camera
-                      (point-at (pos 0 -0.5 18) (pos 0 0 0))))
+(define opos (dir 0 -0.5 18))
+(define odir (dir-normalize opos))
+(define odist (* 1.15 (dir-dist opos)))
+
+(define camera (basis 'camera 
+                      (point-at (pos+ origin (dir-scale odir odist)) (pos 0 0 0))))
 
 (define (finish turtles variables)
   (set-rendering-config!
