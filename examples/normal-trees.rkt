@@ -4,8 +4,10 @@
 !(r) F(l) A(r)
 
 ## rules ##
-A(r) → ^F(l) B(r+s) >(δ*3) B(r+s) >(δ*5) B(r+s)
-B(w) → [!(w) ^^F(l) >(δ*6) A(w)]
+A(r) -> ^F(l)  B(r+s)
+        >(δ*3) B(r+s)
+        >(δ*5) B(r+s)
+B(w) -> [!(w) ^^F(l) >(δ*6) A(w)]
 
 ## variables ##
 n=13
@@ -24,8 +26,10 @@ h=2000
 !(r) F(l) A(r,l)
 
 ## rules ##
-A(r,l) → ^F(l) B(r,l) >(θ*3) B(r,l) >(θ*4) B(r,l)
-B(r,l) → [!(r) ^F(l) >(θ*2) A(r*s,l*v)]
+A(r,l) -> ^F(l)  B(r,l)
+          >(θ*3) B(r,l)
+          >(θ*4) B(r,l)
+B(r,l) -> [!(r) ^F(l) >(θ*2) A(r*s,l*v)]
 
 ## variables ##
 n=14
