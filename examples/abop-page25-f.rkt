@@ -3,8 +3,8 @@
 ## axiom ##
 X
 ## rules ##
-X -> F-[[X]+X]+F[+FX]-X
 F -> FF
+X -> F-[[X]+X]+F[+FX]-X
 
 ## variables ##
 n=6
