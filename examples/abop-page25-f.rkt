@@ -2,6 +2,7 @@
 
 ## axiom ##
 X
+
 ## rules ##
 F -> FF
 X -> F-[[X]+X]+F[+FX]-X
