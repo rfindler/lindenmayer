@@ -18,6 +18,8 @@ turtle graphics in L-systems.
  Moves the turtle forward and draws a line.
 
  If @racket[len] is supplied, the turtles moves that distance (negative values move backwards).
+ If @racket[len] is not supplied, @racket[F] checks for a variable named @litchar{l} and uses
+ its value.
  Otherwise, it moves two steps forward.
 }
 
@@ -56,4 +58,9 @@ turtle graphics in L-systems.
 
 @defproc[(finish [variables hash?] [turtles turtles?]) pict?]{
   Turns the given @racket[turtles] into a pict.
+}
+
+@defparam[scale-final? scale? boolean? #:value #t]{
+ Determines if @racket[finish] scales the resulting pict so that
+ it fits in a 300x300 rectangle. 
 }
