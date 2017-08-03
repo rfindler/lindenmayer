@@ -19,6 +19,6 @@
                     (when (p:pict? val)
                       (when show-progress? (display #\.) (flush-output))
                       (set! picts (cons val picts))))])
-    (dynamic-require file #f))
+    (dynamic-require `(submod (file ,(~a file)) main) #f))
   (when show-progress? (printf " done\n"))
   (reverse picts))

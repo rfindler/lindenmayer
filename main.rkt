@@ -8,6 +8,7 @@
            syntax/readerr
            racket/match
            racket/syntax
+           racket/format
            "lexer.rkt"
            "structs.rkt"
            "syntax-properties.rkt"
@@ -101,6 +102,7 @@
       (cond
         [(exn? sections) (values sections '())]
         [else
+         (define the-name (string->symbol (~a "l-system" n)))
          (define l-system
            (annotate-rule-info
             (hash-ref sections 'rules)
@@ -109,44 +111,60 @@
             (cond
               [(parametric-l-system? (hash-ref sections 'rules))
                (define (sym->app sym) `(,(sym-id sym) ,@(sym-args sym)))
-               `(let (,@(for/list ([pr (in-list (hash-ref sections 'variables '()))])
-                          `[,(list-ref pr 0) ,(list-ref pr 1)]))
-                  (parametric-l-system
-                   ,n :::start :::finish
-                   (hash
-                    ,@(apply
-                       append
-                       (for/list ([pr (in-list (hash-ref sections 'variables '()))])
-                         (list `',(syntax-e (list-ref pr 0)) (list-ref pr 0)))))
-                   ,(for/list ([c (in-list (hash-ref sections 'axiom))])
-                      (sym->app c))
-                   ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
-                       `(,(sym->app (rule-nt pr))
-                         ,@(if (rule-guard pr)
-                               (list (rule-guard pr))
-                               '())
-                         ->
-                         ,@(for/list ([c (in-list (rule-rhs pr))])
-                             (sym->app c))))))]
+               `(begin
+                  (provide ,the-name)
+                  (define (,the-name the-hash)
+                    (let (,@(for/list ([pr (in-list (hash-ref sections 'variables '()))])
+                              `[,(list-ref pr 0) (hash-ref the-hash
+                                                           ',(list-ref pr 0)
+                                                           ',(list-ref pr 1))]))
+                      (parametric-l-system
+                       ,n :::start :::finish
+                       (hash
+                        ,@(apply
+                           append
+                           (for/list ([pr (in-list (hash-ref sections 'variables '()))])
+                             (list `',(syntax-e (list-ref pr 0)) (list-ref pr 0)))))
+                       ,(for/list ([c (in-list (hash-ref sections 'axiom))])
+                          (sym->app c))
+                       ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
+                           `(,(sym->app (rule-nt pr))
+                             ,@(if (rule-guard pr)
+                                   (list (rule-guard pr))
+                                   '())
+                             ->
+                             ,@(for/list ([c (in-list (rule-rhs pr))])
+                                 (sym->app c)))))))
+                  (module+ main
+                    (,the-name
+                     (make-hash
+                      ',(for/list ([pr (in-list (hash-ref sections 'variables '()))])
+                          `(,(list-ref pr 0) . ,(list-ref pr 1)))))))]
               [else
-               `(l-system
-                 ,n :::start :::finish
-                 (quote
-                  ,(for/hash ([pr (in-list (hash-ref sections 'variables '()))])
-                     (values (syntax-e (list-ref pr 0)) (list-ref pr 1))))
-                 ,(for/list ([c (in-list (hash-ref sections 'axiom))])
-                    (sym-id c))
-                 ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
-                     (when (rule-guard pr)
-                       (raise-syntax-error
-                        'lindenmayer
-                        "conditions are supported only for parametric lindenmayer systems"
-                        (rule-guard pr)))
-                     `(,(sym-id (rule-nt pr))
-                       ->
-                       ,@(for/list ([c (in-list (rule-rhs pr))])
-                           (sym-id c)))))]))))
-
+               `(begin
+                  (provide ,the-name)
+                  (define (,the-name the-hash)
+                    (l-system
+                     ,n :::start :::finish
+                     (join-hashes (quote
+                                   ,(for/hash ([pr (in-list (hash-ref sections 'variables '()))])
+                                      (values (syntax-e (list-ref pr 0)) (list-ref pr 1))))
+                                  the-hash)
+                     ,(for/list ([c (in-list (hash-ref sections 'axiom))])
+                        (sym-id c))
+                     ,@(for/list ([pr (in-list (hash-ref sections 'rules))])
+                         (when (rule-guard pr)
+                           (raise-syntax-error
+                            'lindenmayer
+                            "conditions are supported only for parametric lindenmayer systems"
+                            (rule-guard pr)))
+                         `(,(sym-id (rule-nt pr))
+                           ->
+                           ,@(for/list ([c (in-list (rule-rhs pr))])
+                               (sym-id c))))))
+                  (module+ main
+                    (,the-name (hash))))]))))
+         
          (define (add-sym-nt sym) (hash-set! non-terminals (syntax-e (sym-id sym)) #t))
          (for ([a-rule (in-list (hash-ref sections 'rules))])
            (add-sym-nt (rule-nt a-rule))

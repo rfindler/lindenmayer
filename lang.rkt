@@ -6,10 +6,12 @@
    racket/dict
    racket/base
    racket/list)
+  racket/set
   racket/match
   "runtime.rkt"
   "private/define-arity.rkt")
-(provide l-system parametric-l-system default-callbacks)
+(provide l-system parametric-l-system default-callbacks
+         join-hashes)
 
 (define (default-callbacks name args)
   (display name)
@@ -224,6 +226,10 @@
            (free-id-table-set! result #'x #'(x arg-x ...))))]))
   (for/list ([(id exp) (in-dict result)])
     exp))
+
+(define (join-hashes hash1 hash2)
+  (for/hash ([k (in-set (list->set (append (hash-keys hash1) (hash-keys hash2))))])
+    (values k (hash-ref hash2 k (λ () (hash-ref hash1 k))))))
 
 (module+ test
   (require rackunit)

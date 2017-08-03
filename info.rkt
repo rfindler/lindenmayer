@@ -25,3 +25,5 @@
 (define scribblings '(("scribblings/lindenmayer.scrbl" (multi-page))))
 
 (define pkg-desc "A Lindenmayer system DSL")
+
+(define version "1.1")

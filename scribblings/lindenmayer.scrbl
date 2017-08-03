@@ -3,7 +3,8 @@
 @(require pict racket/runtime-path scribble/manual scribble/base "util.rkt" racket/list
           (for-label racket/contract
                      (only-in racket/base hash?  define require provide
-                              all-from-out all-defined-out except-in hash-ref vector)
+                              all-from-out all-defined-out except-in hash-ref vector
+                              current-output-port)
                      pict3d
                      lindenmayer/3d-turtle))
 
@@ -77,11 +78,12 @@ And running this system produces a picture of a tree branch:
 @(first (fetch-picts abop-25-d.rkt))
 
 In general @tt{#lang lindenmayer} can be extended by a section language on the @tt{#lang} line, in
-this case @racket[racket]. Then below the line of @racketcommentfont{=====} there should be a module written in
+this case @racket[racket]. Then below the line of @racketcommentfont{=====} there should be a module
+written in
 that language that tells the l-system how it should be interpreted. The program must export one
 function matching each terminal and non-terminal of the l-system, plus the function @racket[start]
-and @racket[finish]. In our example the @racketmodname[lindenmayer/turtle] library provides most of these
-functions.
+and @racket[finish]. In our example the @racketmodname[lindenmayer/turtle] library provides most of
+these functions.
 
 The L-system is interpret by first creating an initial state using the @racket[start] function.
 Then the function matching each character of the string are called on the state and the variables to
@@ -207,8 +209,22 @@ Has the @racket[A] and @racket[B] rules dispatch on the parameter @racket[d], to
 @(first (fetch-picts alternating.rkt))
 
 
-Conditionals are placed before @racketidfont["->"], and after a @racketidfont[":"]. Conditions can be joined by an
+Conditionals are placed before @racketidfont["->"], and after a @racketidfont[":"].
+Conditions can be joined by an
 @racket[&]. Currently supported comparisons are: @racket[≠ =< > ≤ ≥].
+
+@section{Using Lindenmayer programs as libraries}
+
+Each @tt{#lang lindenmayer} module exports a single function
+for each lindenmayer system in the file. The exports are
+named @litchar{l-system0}, @litchar{l-system1}, @litchar{l-system2}, etc.
+
+Each export is bound to a function that accepts a
+@tech[#:doc '(lib "scribblings/reference/reference.scrbl")]{hash}
+that can change the values of the @tt{## variables ##} section
+of the lindenmayer program. The result is the result of the @racket[_finish]
+function if there is one. If there isn't one, the function will
+print to the result of @racket[current-output-port].
 
 @include-section["simple.scrbl"]
 
