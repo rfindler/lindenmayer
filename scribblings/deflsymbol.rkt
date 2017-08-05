@@ -60,9 +60,8 @@
         ((arg-for-contract contract) ...)
         value:value-kw
         desc ...)
-     #'(let-syntax ([id (make-element-id-transformer (λ (stx)
-                                                       (printf "transforming ~s\n" stx)
-                                                       #`(racketidfont (~a (syntax-e stx)))))]
+     #'(let-syntax ([id (make-element-id-transformer
+                         (λ (stx) #`(racketidfont #,(format "~a" (syntax-e stx)))))]
                     [arg-for-contract (make-variable-id 'arg-for-contract)] ...)
          (*defls kind.kind
                  lt.expr
