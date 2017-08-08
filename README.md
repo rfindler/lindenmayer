@@ -11,7 +11,7 @@ This pkg requires (at least) version 6.9 of Racket.
 After it is installed, run
 
 ```
-raco pkg docs lindenmayer
+raco docs lindenmayer
 ```
 
 to start reading about the language.
