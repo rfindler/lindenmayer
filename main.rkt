@@ -406,10 +406,17 @@
       [else
        (define-values (front-result nts) (parse-fronts port name))
        (when (exn? front-result) (raise front-result))
+       (define mod-id
+         (cond [(path? (object-name port))
+                (define-values (base filename dir?) (split-path (object-name port)))
+                (string->symbol
+                 (path->string
+                  (path-replace-extension filename "")))]
+               [else 'anonymous]))
 
        (datum->syntax
         #f
-        `(module name racket/base
+        `(module ,mod-id racket/base
            (require lindenmayer/lang)
            (define (:::start variables) (void))
            (define (:::finish val variables) (newline))
