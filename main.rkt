@@ -458,10 +458,20 @@
     (define-values (fronts nts) (parse-fronts port source))
     nts)
   (check-equal? (parse-fronts/1 (open-input-string "# axiom #\nA\n# rules #\nA->AA") #f)
-                '((l-system 0 :::start :::finish '#hash() (A) (A -> A A))))
+                '((begin
+                   (provide l-system0)
+                   (define (l-system0 the-hash)
+                     (l-system 0 :::start :::finish (join-hashes '#hash() the-hash)
+                               (A) (A -> A A)))
+                   (module+ main (l-system0 (hash))))))
   (check-equal? (parse-fronts/1 (open-input-string "# axiom #\n\n\nA\n\n# rules #\nA->AA\nB->BA")
                                 #f)
-                '((l-system 0 :::start :::finish  '#hash() (A) (A -> A A) (B -> B A))))
+                '((begin
+                   (provide l-system0)
+                   (define (l-system0 the-hash)
+                     (l-system 0 :::start :::finish  (join-hashes '#hash() the-hash)
+                               (A) (A -> A A) (B -> B A)))
+                   (module+ main (l-system0 (hash))))))
   (check-equal? (parse-fronts/1 (open-input-string
                                  (string-append
                                   "# axiom #\n"
@@ -474,11 +484,15 @@
                                   "A → A A\n"
                                   "B → B A\n"))
                                 #f)
-                '((l-system 0 :::start :::finish
-                            '#hash((w . 54) (n . 20))
+                '((begin
+                    (provide l-system0)
+                    (define (l-system0 the-hash)
+                      (l-system 0 :::start :::finish
+                            (join-hashes '#hash((w . 54) (n . 20)) the-hash)
                             (A)
                             (A -> A A)
-                            (B -> B A))))
+                            (B -> B A)))
+                    (module+ main (l-system0 (hash))))))
   (check-equal? (parse-fronts/1 (open-input-string
                                  (string-append
                                   "# axiom #\nA\n# rules #\nA->AA\n"
@@ -487,9 +501,21 @@
                                   "---\n"
                                   "# axiom #\nA\n# rules #\nA->AA\nB->BA"))
                                 #f)
-                '((l-system 0 :::start :::finish '#hash() (A) (A -> A A))
-                  (l-system 1 :::start :::finish '#hash() (X) (B -> C X))
-                  (l-system 2 :::start :::finish  '#hash() (A) (A -> A A) (B -> B A))))
+                '((begin
+                   (provide l-system0)
+                   (define (l-system0 the-hash)
+                     (l-system 0 :::start :::finish (join-hashes '#hash() the-hash) (A) (A -> A A)))
+                   (module+ main (l-system0 (hash))))
+                  (begin
+                    (provide l-system1)
+                    (define (l-system1 the-hash)
+                     (l-system 1 :::start :::finish (join-hashes '#hash() the-hash) (X) (B -> C X)))
+                   (module+ main (l-system1 (hash))))
+                  (begin
+                    (provide l-system2)
+                    (define (l-system2 the-hash)
+                     (l-system 2 :::start :::finish  (join-hashes '#hash() the-hash) (A) (A -> A A) (B -> B A)))
+                    (module+ main (l-system2 (hash))))))
 
   (check-equal? (parse-fronts/1 (open-input-string
                                  (string-append
@@ -505,11 +531,15 @@
                                   "## variables ##\n"
                                   "n=4"))
                                 #f)
-                '((l-system 0 :::start :::finish
-                            '#hash((n . 4))
+                '((begin
+                    (provide l-system0)
+                    (define (l-system0 the-hash)
+                      (l-system 0 :::start :::finish
+                            (join-hashes '#hash((n . 4)) the-hash)
                             (A)
                             (A -> A B)
-                            (B -> A))))
+                            (B -> A)))
+                    (module+ main (l-system0 (hash))))))
 
   (check-equal? (parse-fronts/2 (open-input-string
                                  (string-append
@@ -544,19 +574,33 @@
                                   "# axiom #\nQ(1,3)\n# rules #\nQ(x,y)->Q(y,x)Q(2*x,0)\nW->WQ(1,2)\n"
                                   "# variables #\nn=1\na=2\nb=3"))
                                 #f)
-                '((l-system 0 :::start :::finish '#hash() (A) (A -> A A))
+                '((begin
+                    (provide l-system0)
+                    (define (l-system0 the-hash)
+                      (l-system 0 :::start :::finish (join-hashes '#hash() the-hash) (A) (A -> A A)))
+                    (module+ main (l-system0 (hash))))
+                  (begin
+                    (provide l-system1)
+                    (define (l-system1 the-hash)
                   (let ()
                     (parametric-l-system 1 :::start :::finish
                                          (hash)
                                          ((Q 123))
                                          ((Q x) -> (Q (+ x x)) (Q (* 2 x)))
-                                         ((W) -> (W) (Q 123))))
-                  (let ([b 3][a 2][n 1])
+                                         ((W) -> (W) (Q 123)))))
+                      (module+ main (l-system1 (make-hash '()))))
+                  (begin
+                    (provide l-system2)
+                    (define (l-system2 the-hash)
+                  (let ([b (hash-ref the-hash 'b '3)]
+                        [a (hash-ref the-hash 'a '2)]
+                        [n (hash-ref the-hash 'n '1)])
                     (parametric-l-system 2 :::start :::finish
                                          (hash 'b b 'a a 'n n)
                                          ((Q 1 3))
                                          ((Q x y) -> (Q y x) (Q (* 2 x) 0))
-                                         ((W) -> (W) (Q 1 2))))))
+                                         ((W) -> (W) (Q 1 2)))))
+                    (module+ main (l-system2 (make-hash '((b . 3) (a . 2) (n . 1))))))))
                 
   (check-not-exn
    (λ ()
