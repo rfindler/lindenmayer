@@ -66,6 +66,8 @@
                               ,#'(mod post-hyphens . whatever)
                               (require (prefix-in ::: (submod "." post-hyphens))
                                        lindenmayer/lang)
+                              (module configure-runtime racket/base
+                                (require lindenmayer/configure-runtime))
                               ,@front-result))]
                 [_ module-after-hyphens])]
              [else module-after-hyphens])]
@@ -418,6 +420,8 @@
         #f
         `(module ,mod-id racket/base
            (require lindenmayer/lang)
+           (module configure-runtime racket/base
+             (require lindenmayer/configure-runtime))
            (define (:::start variables) (void))
            (define (:::finish val variables) (newline))
            ,@(for/list ([nt (in-list nts)])

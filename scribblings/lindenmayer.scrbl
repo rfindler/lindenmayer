@@ -85,7 +85,7 @@ function matching each terminal and non-terminal of the l-system, plus the funct
 and @racket[finish]. In our example the @racketmodname[lindenmayer/turtle] library provides most of
 these functions.
 
-The L-system is interpret by first creating an initial state using the @racket[start] function.
+The L-system is interpreted by first creating an initial state using the @racket[start] function.
 Then the function matching each character of the string are called on the state and the variables to
 produce a new state. Finally the @racket[finish] function is called to produce the final result.
 
@@ -212,6 +212,15 @@ Has the @racket[A] and @racket[B] rules dispatch on the parameter @racket[d], to
 Conditionals are placed before @racketidfont["->"], and after a @racketidfont[":"].
 Conditions can be joined by an
 @racket[&]. Currently supported comparisons are: @racket[≠ =< > ≤ ≥].
+
+@section{The @tt{#lang lindenmayer} REPL}
+
+The read-eval-print loop for programs in the
+@racketmodname[lindenmayer] langauge expects a single line
+with a series of @litchar{;}-separated assignments to
+variables (using the syntax of the variables section). It
+responds by running the Lindenmayer system with the new
+variable bindings and showing the result.
 
 @section{Using Lindenmayer programs as libraries}
 
