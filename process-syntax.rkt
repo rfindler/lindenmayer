@@ -9,16 +9,29 @@
 (struct wrap (prop) #:prefab)
 
 (define (get-refactor-property stx)
-  (syntax-property stx rule-property-key))
+  (define maybe-prop (syntax-property stx rule-property-key))
+  (process-property maybe-prop))
+
+(define (process-property prop)
+  (cond
+    [(rule-group? prop) (list (rule-group-info prop))]
+    [(cons? prop)
+     (match-define (cons left right) prop)
+     (append (process-property left)
+             (process-property right))]
+    [else '()]))
 
 ;; traverse fully expanded syntax and produce a list suitable for building
 ;; an interval-map.
 (define (build-refactor-info stx source)
+  (define found (mutable-set))
   (define refactor-info '())
   (let loop ([stx stx])
-    (define prop (get-refactor-property stx))
-    (when prop
-      (set! refactor-info (cons prop refactor-info)))
+    (define props (get-refactor-property stx))
+    (for ([prop (in-list props)])
+      (when (not (set-member? found prop))
+        (set! refactor-info (cons prop refactor-info))
+        (set-add! found prop)))
     (when (syntax->list stx)
       (for ([sub-stx (in-syntax stx)])
         (loop sub-stx))))

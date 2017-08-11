@@ -1,6 +1,8 @@
 #lang racket
 
-(provide annotate-rule-info rule-property-key)
+(provide annotate-rule-info
+         rule-property-key
+         (struct-out rule-group))
 (require "structs.rkt" syntax/id-table)
 
 (define rule-property-key 'lindemayer:rule-info)
@@ -69,6 +71,9 @@
        (hash-ref (bi-map-sym->syn map) k failure)])))
        
 (require 'bi-maps)
+
+(struct rule-group (info) #:prefab)
+
 (define (process-rules rules)
   (define symbol-map (make-bi-map))
   ;; fill in the mapping from identifiers to symbols
@@ -81,6 +86,7 @@
       (bi-map-add! symbol-map id (gensym))))
   ;; build a list of vectors of symbols for each rule
   (define rule-strings
+    ;(listof (cons/c (vectorof symbol? #:flat? #t) (vectorof (cons/c integer? integer?) #:flat? #t)))
     (for/list ([r (in-list rules)])
       (match-define (rule nt guard rhs) r)
       (cons
@@ -92,13 +98,17 @@
          (cons (sub1 (syntax-position id)) (syntax-span id))))))
   ;; build a mapping from source positions to symbolic representations of (non-)terminals
   (define position-map
+    #;(hash/c integer?
+              (cons/c integer? symbol?)
+              #:immutable #t
+              #:flat? #t)
     (for*/hash ([r (in-list rules)]
                 [s (in-list (rule-rhs r))])
       (match-define (sym id _) s)
       (values (sub1 (syntax-position id))
               (cons (syntax-span id) (bi-map-ref symbol-map id)))))
-  ;; range : (or/c #f (cons/c integer? (listof (or/c #f (cons/c integer? integer?))))) 
   (define ranges
+    ;(or/c #f (cons/c integer? (listof (or/c #f (cons/c integer? integer?)))))
     (and (not (empty? rules))
          (cons (sub1 (syntax-position (sym-id (rule-nt (first rules)))))
                (for/list ([r (in-list rules)])
@@ -115,5 +125,4 @@
                          (+ (syntax-position id)
                             (syntax-span id)))))))))
   
-  (and ranges (cons ranges (list position-map rule-strings))))
-  
+  (rule-group (and ranges (list ranges position-map rule-strings))))
