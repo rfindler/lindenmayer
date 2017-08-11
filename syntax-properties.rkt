@@ -76,10 +76,13 @@
 
 (define (process-rules rules)
   (define symbol-map (make-bi-map))
+  (define has-args? #f)
   ;; fill in the mapping from identifiers to symbols
-  (for ([r (in-list rules)])
+  (for/list ([r (in-list rules)])
     (match-define (rule nt guard rhs) r)
     (match-define (sym nt-id nt-args) nt)
+    (unless (empty? nt-args)
+      (set! has-args? #t))
     (bi-map-add! symbol-map nt-id (gensym))
     (for ([s (in-list rhs)])
       (match-define (sym id args) s)
@@ -125,4 +128,6 @@
                          (+ (syntax-position id)
                             (syntax-span id)))))))))
   
-  (rule-group (and ranges (list ranges position-map rule-strings))))
+  (and (not has-args?) ; disable the refactoring for parametric l-systems
+       ranges
+       (rule-group (list ranges position-map rule-strings))))
