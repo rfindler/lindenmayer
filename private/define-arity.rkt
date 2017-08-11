@@ -19,16 +19,19 @@
            e))]))
 ;; STOP
 
-(define-for-syntax (signal-length-error formal-args actual-args def-f use-f)
+(define-for-syntax (signal-length-error actual-args formal-args def-f use-f)
   (define formal-args-length (stx-len formal-args))
   (define actual-args-length (stx-len actual-args))
   (define f (syntax-e def-f))
   (raise-syntax-error f
                       (format
-                       "expected ~a arguments for ~a, found ~a"
+                       (string-append
+                        "definition has ~a argument~a, use has ~a argument~a,"
+                        " expected them to be the same")
                        formal-args-length
-                       f
-                       actual-args-length)
+                       (if (= formal-args-length 1) "" "s")
+                       actual-args-length
+                       (if (= actual-args-length 1) "" "s"))
                       #f
                       use-f
                       (list def-f)))
