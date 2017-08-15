@@ -66,4 +66,4 @@ h=800
 (define camera (point-at (pos+ origin (dir-scale odir odist)) (pos 0 0 0)))
 
 (define (finish turtles variables)
-  (draw-pict turtles camera (hash-ref variables 'w (hash-ref variables 'h))))
+  (draw-pict turtles camera (hash-ref variables 'w) (hash-ref variables 'h)))
