@@ -19,8 +19,8 @@ T3=0
 e=.22
 v=1.732
 n=6
-w=2500
-h=2500
+w=800
+h=800
 backup=900
 ----------------------------------------
 ## axiom ##
@@ -41,8 +41,8 @@ T3=0
 e=.14
 n=7
 v=1.732
-w=2500
-h=2500
+w=800
+h=800
 backup=1000
 ---------------------------------------
 ## axiom ##
@@ -63,15 +63,16 @@ T3=-.19
 e=.27
 n=6
 v=1.732
-w=2500
-h=2500
+w=800
+h=800
 backup=900
 ===========================
 (provide (all-defined-out)
          (all-from-out lindenmayer/3d-turtle))
 (require lindenmayer/3d-turtle
          lindenmayer/3d
-         (except-in pict3d move))
+         (except-in pict3d move)
+         (prefix-in pict: pict))
 
 #| From ABOP |#
 
@@ -112,13 +113,7 @@ this deformation is applied each time the turtle moves.
 
 
 (define (finish turtles variables)
-  (define camera (basis 'camera
-                        (affine-compose
-                         (point-at (pos 0 -1 (hash-ref variables 'backup)) (pos 0 0 0)))))
-  (set-rendering-config!
-   (hash-ref variables 'w)
-   (hash-ref variables 'h)
-   #:ambiance? #f
-   #:debug? #t
-   )
-  (combine camera (draw turtles)))
+  (define camera (point-at (pos 0 -1 (hash-ref variables 'backup)) (pos 0 0 0)))
+  (pict:scale
+   (draw-pict turtles camera (hash-ref variables 'w) (hash-ref variables 'h))
+   1/2))

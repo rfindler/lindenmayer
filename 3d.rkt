@@ -3,6 +3,7 @@
  (rename-out
   [out:make-turtle make-turtle]
   [out:move move])
+ draw-pict
  turtle-state?
  shift
  move/no-poly
@@ -25,7 +26,7 @@
  start-poly
  end-poly
  set-rendering-config!)
-(require pict3d (prefix-in 3d: pict3d))
+(require pict3d (prefix-in 3d: pict3d) (prefix-in pict: pict) math/matrix)
 ;;TODO lazy load gui
 (require racket/gui)
 (module+ test (require rackunit))
@@ -44,19 +45,32 @@
      0))
   (turtle-state turtle* empty (list (turtle->point turtle*)) empty empty empty))
 
+;; turtle-state: turtle
+;; stack: listof turtle ; turtles to resume to
+;; points: listof point ; current line
+;; points-stack: listof (listof point) ; set of lines to draw
+;; points-set-stack: listof (listof point) ; set of polygons
+;; extra-pict: listof extras ; set of extra picts
 (struct turtle-state (turtle stack points points-stack points-set-stack extra-picts)
   #:transparent)
 #|
 (listof (listof points))
 |#
 
+;; points: listof point
 (struct polygon (points)
   #:transparent
   #:extra-constructor-name make-polygon)
+;; dir: Dir
+;; width: flonum
+;; color-index: index
 (struct point (dir width color-index)
   #:transparent
   #:extra-constructor-name make-point)
 
+;; point: Point
+;; dir: Dir
+;; pict: pict3d
 (struct extras (point dir pict)
   #:transparent
   #:extra-constructor-name make-extras)
@@ -189,6 +203,7 @@
 (define (ortho? v k)
     (0.00000001 . > . (abs (dir-dot v k))))
 ;; poor mans non-gimble locking position+rotation
+
 (struct turtle (pos dir up width color-index)
   #:transparent)
 
@@ -201,7 +216,7 @@
        #:pre (up dir) (ortho? up dir)
        [result turtle?])
   (turtle pos dir up w c))
-;; pos : Pos, di Dir, up:Dir
+;; pos : Pos, dir: Dir, up:Dir
 ;; up and dir *must* be orthoginal
 ;; up and dir must be unit vectors
 
@@ -394,3 +409,103 @@
      (dir-scale k (* (dir-dot k v) (- 1 (cos θ))))))))
 
 (define starting-turtle (out:make-turtle zero-dir +x +z))
+
+
+;;; manual 2d projection
+
+(struct 2d-point (x y width color-index) #:transparent)
+
+;; turtle-state Affine Real Real -> pict
+;; draws a turtle state to a pict. only works on turltes with no extras or polygons.
+;; The color index is ignored.
+(define (draw-pict ts camera width height)
+  (match-define (turtle-state _ _ points points-stack poly extras) ts)
+  (unless (empty? poly) (error 'draw-pict "non-empty polygon set!"))
+  (unless (empty? extras) (error 'draw-pict "non-empty extras set!"))
+  (define 2d-lines (3d->2d (cons points points-stack) camera))
+  (draw-2d-lines 2d-lines width height))
+
+(define (3d->2d 3d-lines camera)
+  (define camera-projection (project-line-to-camera camera))
+  (define 3d-lines-relative-to-camera (map camera-projection 3d-lines))
+  (define z-coords
+    (map dir-dz
+         (map point-dir
+              (flatten 3d-lines-relative-to-camera))))
+  (define z-avg
+    (/ (apply + z-coords) (length z-coords)))
+    
+  (for/list ([l (in-list 3d-lines-relative-to-camera)])
+    (3d-line->2d-line l 1)))
+
+
+;; Affine -> (listof point) -> (listof 2d-point)
+(define (project-line-to-camera camera)
+  (match-define (affine (dir xx xy xz) (dir yx yy yz) (dir zx zy zz) (pos x y z)) camera)
+  (define change-basis
+     (matrix-inverse
+      (matrix [[xx yx zx]
+               [xy yy zy]
+               [xz yz zz]])))
+  (define shift (col-matrix [x y z]))
+  (lambda (line)
+    (for/list ([p (in-list line)])
+      (match-define (point dir width color-index) p)
+      (point (affine-dir-apply change-basis shift dir) width color-index))))
+
+(define (affine-dir-apply basis origin d)
+  (match-define (dir dx dy dz) d)
+  (apply dir (matrix->list (matrix+ (matrix* basis (col-matrix [dx dy dz])) origin))))
+
+(module+ test
+  (check-equal?
+   ((project-line-to-camera
+     (affine (dir 0 1 0) (dir 0 0 1) (dir 1 0 0) (pos 0 0 0)))
+    (list (point (dir 1 2 3) 0 0)))
+   (list (point (dir 2 3 1) 0 0)))
+  (check-equal?
+   ((project-line-to-camera
+     (affine (dir 0 1 0) (dir 0 0 1) (dir 1 0 0) (pos 1 1 1)))
+    (list (point (dir 1 2 3) 0 0)))
+   (list (point (dir 3 4 2) 0 0)))
+  (check-equal?
+   ((project-line-to-camera
+     (point-at (pos 0 0 -1) (pos 0 0 0)))
+    (list (point (dir 1 2 3) 0 0)))
+   (list (point (dir 1 2 2) 0 0)))) 
+
+(define (3d-line->2d-line line z-avg)
+  (for/list ([p (in-list line)])
+    (3d-point->2d-point p z-avg)))
+(define (3d-point->2d-point p z-avg)
+  (match-define (point (dir dx dy dz) width color) p)
+  (2d-point (/ dx z-avg) (/ dy z-avg) (/ width z-avg) color))
+(define (draw-2d-lines lines w h)
+  (define xs (map 2d-point-x (flatten lines)))
+  (define ys (map 2d-point-y (flatten lines)))
+  (define dx-shift (- (apply min xs)))
+  (define dy-shift (- (apply min ys)))
+  (define dw (+ dx-shift (apply max xs)))
+  (define dh (+ dy-shift (apply max ys)))
+  (define bound (max dw dh))
+  (pict:scale-to-fit
+   (pict:dc
+    (lambda (dc dx dy)
+      (define old-brush (send dc get-brush))
+      (define old-pen (send dc get-pen))
+      (send dc set-brush
+            (new brush% [style 'transparent]))
+      (for ([line (in-list lines)])
+        (for ([start (in-list line)]
+              [end (in-list (rest line))])
+          (match-define (2d-point sx sy width _) start)
+          (match-define (2d-point ex ey _ _) end)
+          (send dc set-pen (new pen% [width width] [color "black"]))
+          (define path (new dc-path%))
+          (send path move-to sx sy)
+          (send path line-to ex ey)
+          (send dc draw-path path (+ dx-shift dx) (+ dy-shift dy))))
+      (send dc set-brush old-brush)
+      (send dc set-pen old-pen))
+    bound bound)
+   w h))
