@@ -18,8 +18,8 @@ s=-0.079
 
 l=1.8
 
-w=2000
-h=2000
+w=800
+h=800
 ---------------------------
 
 ## axiom ##
@@ -42,8 +42,8 @@ s=0.65
 l=1.8
 v=0.93
 
-w=2000
-h=2000
+w=800
+h=800
 ===========================
 ;; modified from http://www.geekyblogger.com/2008/04/tree-and-l-system.html
 
@@ -63,12 +63,7 @@ h=2000
 (define odir (dir-normalize opos))
 (define odist (* 1.15 (dir-dist opos)))
 
-(define camera (basis 'camera 
-                      (point-at (pos+ origin (dir-scale odir odist)) (pos 0 0 0))))
+(define camera (point-at (pos+ origin (dir-scale odir odist)) (pos 0 0 0)))
 
 (define (finish turtles variables)
-  (set-rendering-config!
-   (hash-ref variables 'w)
-   (hash-ref variables 'h)
-   #:ambiance? #f)
-  (combine camera (draw turtles)))
+  (draw-pict turtles camera (hash-ref variables 'w (hash-ref variables 'h))))

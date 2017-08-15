@@ -2,7 +2,7 @@
 (provide + - & ∧ ^ \\ / \| \[ \] ’ \' ! F f G
          $ \{ \} \.
          ;; from 3d-turtle.rkt
-         insert-pict make-turtle starting-turtle draw set-rendering-config! turtle-state?)
+         insert-pict make-turtle starting-turtle draw set-rendering-config! turtle-state? draw-pict)
 (require "3d.rkt" (prefix-in r: racket))
 ;; turn left
 (define (+ state variables [δ (hash-ref variables 'δ)])
