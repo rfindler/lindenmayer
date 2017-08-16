@@ -50,7 +50,8 @@ h=800
 (provide (all-defined-out)
          (all-from-out lindenmayer/3d-turtle))
 (require lindenmayer/3d-turtle
-         (except-in pict3d move))
+         (except-in pict3d move)
+         (prefix-in pict: pict))
 
 (define (A state vars . _) state)
 (define (B state vars . _) state)
@@ -66,4 +67,6 @@ h=800
 (define camera (point-at (pos+ origin (dir-scale odir odist)) (pos 0 0 0)))
 
 (define (finish turtles variables)
-  (draw-pict turtles camera (hash-ref variables 'w) (hash-ref variables 'h)))
+  (pict:scale
+   (draw-pict turtles camera)
+   12))

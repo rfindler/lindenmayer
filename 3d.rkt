@@ -418,12 +418,12 @@
 ;; turtle-state Affine Real Real -> pict
 ;; draws a turtle state to a pict. only works on turltes with no extras or polygons.
 ;; The color index is ignored.
-(define (draw-pict ts camera width height)
+(define (draw-pict ts camera)
   (match-define (turtle-state _ _ points points-stack poly extras) ts)
   (unless (empty? poly) (error 'draw-pict "non-empty polygon set!"))
   (unless (empty? extras) (error 'draw-pict "non-empty extras set!"))
   (define 2d-lines (3d->2d (cons points points-stack) camera))
-  (draw-2d-lines 2d-lines width height))
+  (draw-2d-lines 2d-lines))
 
 (define (3d->2d 3d-lines camera)
   (define camera-projection (project-line-to-camera camera))
@@ -480,32 +480,29 @@
 (define (3d-point->2d-point p z-avg)
   (match-define (point (dir dx dy dz) width color) p)
   (2d-point (/ dx z-avg) (/ dy z-avg) (/ width z-avg) color))
-(define (draw-2d-lines lines w h)
+(define (draw-2d-lines lines)
   (define xs (map 2d-point-x (flatten lines)))
   (define ys (map 2d-point-y (flatten lines)))
   (define dx-shift (- (apply min xs)))
   (define dy-shift (- (apply min ys)))
   (define dw (+ dx-shift (apply max xs)))
   (define dh (+ dy-shift (apply max ys)))
-  (define bound (max dw dh))
-  (pict:scale-to-fit
-   (pict:dc
-    (lambda (dc dx dy)
-      (define old-brush (send dc get-brush))
-      (define old-pen (send dc get-pen))
-      (send dc set-brush
-            (new brush% [style 'transparent]))
-      (for ([line (in-list lines)])
-        (for ([start (in-list line)]
-              [end (in-list (rest line))])
-          (match-define (2d-point sx sy width _) start)
-          (match-define (2d-point ex ey _ _) end)
-          (send dc set-pen (new pen% [width width] [color "black"]))
-          (define path (new dc-path%))
-          (send path move-to sx sy)
-          (send path line-to ex ey)
-          (send dc draw-path path (+ dx-shift dx) (+ dy-shift dy))))
-      (send dc set-brush old-brush)
-      (send dc set-pen old-pen))
-    bound bound)
-   w h))
+  (pict:dc
+   (lambda (dc dx dy)
+     (define old-brush (send dc get-brush))
+     (define old-pen (send dc get-pen))
+     (send dc set-brush
+           (new brush% [style 'transparent]))
+     (for ([line (in-list lines)])
+       (for ([start (in-list line)]
+             [end (in-list (rest line))])
+         (match-define (2d-point sx sy width _) start)
+         (match-define (2d-point ex ey _ _) end)
+         (send dc set-pen (new pen% [width width] [color "black"]))
+         (define path (new dc-path%))
+         (send path move-to sx sy)
+         (send path line-to ex ey)
+         (send dc draw-path path (+ dx-shift dx) (+ dy-shift dy))))
+     (send dc set-brush old-brush)
+     (send dc set-pen old-pen))
+   dw dh))

@@ -19,8 +19,6 @@ T3=0
 e=.22
 v=1.732
 n=6
-w=800
-h=800
 backup=900
 ----------------------------------------
 ## axiom ##
@@ -41,8 +39,6 @@ T3=0
 e=.14
 n=7
 v=1.732
-w=800
-h=800
 backup=1000
 ---------------------------------------
 ## axiom ##
@@ -63,8 +59,6 @@ T3=-.19
 e=.27
 n=6
 v=1.732
-w=800
-h=800
 backup=900
 ===========================
 (provide (all-defined-out)
@@ -115,5 +109,5 @@ this deformation is applied each time the turtle moves.
 (define (finish turtles variables)
   (define camera (point-at (pos 0 -1 (hash-ref variables 'backup)) (pos 0 0 0)))
   (pict:scale
-   (draw-pict turtles camera (hash-ref variables 'w) (hash-ref variables 'h))
-   1/2))
+   (draw-pict turtles camera)
+   1/3))
