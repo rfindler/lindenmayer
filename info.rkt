@@ -11,7 +11,8 @@
                "pict-lib"
                "pict3d"
                "syntax-color-lib"
-               "typed-racket-lib"))
+               "typed-racket-lib"
+               "math-lib"))
 (define build-deps '("2d-lib"
                      "rackunit-lib"
                      "pict-doc"
