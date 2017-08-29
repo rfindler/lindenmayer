@@ -5,8 +5,8 @@ X
 
 ## rules ##
 Y -> [X]+X
-X -> F-[Y]+F[+FX]-X
 F -> FF
+X -> F-[Y]+F[+FX]-X
 ## variables ##
 n=8
 θ=22.5
