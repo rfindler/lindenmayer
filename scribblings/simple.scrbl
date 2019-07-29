@@ -52,15 +52,21 @@ n=3
 
 @(apply typeset-code example)
 
-When it is run, it produces the output:
+When it is run, it produces the output
 @(let ()
    (define ip (open-input-string (apply string-append example)))
    (define op (open-output-string))
    (parameterize ([current-namespace (make-base-namespace)]
                   [current-output-port op]
                   [read-accept-reader #t])
-     (eval (read-syntax #f ip)))
-   (tt (get-output-string op)))
+     (eval (read-syntax #f ip))
+     (namespace-require ''name))
+   (unless (equal? (get-output-string op)
+                   "ABAAB\n")
+     (error 'lindenmayer/scribblings/simple
+            "didn't get the expected output, got ~s"
+            (get-output-string op)))
+   (tt (regexp-replace #rx"\n" (get-output-string op) ""))).
 
 There are three main pieces to the implementation of the language:
 the parser, which translates the notations above into a use
