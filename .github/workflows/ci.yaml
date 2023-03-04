@@ -1,0 +1,17 @@
+on: [push, pull_request]
+name: CI
+jobs:
+  build:
+    name: "Build on Racket"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@master
+      - uses: Bogdanp/setup-racket@v1.9.1
+        with:
+          version: 'stable'
+      - name: Install Lindenmayer
+        run: raco pkg install --auto lindenmayer
+      - name: Test Lindenmayer
+        run: xvfb-run -a raco test -p lindenmayer

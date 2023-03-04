@@ -1,5 +1,7 @@
 # #lang lindenmayer
 
+![example workflow](https://github.com/rfindler/lindenmayer/actions/workflows/ci.yaml/badge.svg)
+
 Install this pkg with
 
 ```
