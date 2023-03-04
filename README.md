@@ -8,13 +8,13 @@ raco pkg install lindenmayer
 
 This pkg requires (at least) version 6.9 of Racket.
 
-After it is installed, run
+The documentation is [here](https://docs.racket-lang.org/lindenmayer/) or, after it is installed, run
 
 ```
 raco docs lindenmayer
 ```
 
-to start reading about the language.
+to see the docs on your local machine.
 
 This work is licensed under a [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/).
 
