@@ -1,5 +1,8 @@
 #lang 2d racket/base
-(provide wrap-lexer)
+(require racket/contract syntax-color/lexer-contract)
+(provide
+ (contract-out
+  [wrap-lexer (-> (or/c #f lexer/c) lexer/c)]))
 (require racket/match syntax-color/racket-lexer racket/bool racket/list)
 (module+ test (require rackunit))
 
@@ -235,7 +238,7 @@
     #;(printf "lexer:    ~a ~s\n" state (peek-string 20 0 port))
     (cond
       [(eof-object? (peek-char port))
-       (values (read-char port) 'eof #f 0 0 0 state)]
+       (values (read-char port) 'eof #f #f #f 0 state)]
       [(post-hyph? state)
        (call-with-values
         (λ () (inner port offset (post-hyph-mode state)))
