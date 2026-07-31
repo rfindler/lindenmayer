@@ -1,6 +1,8 @@
 #lang 2d racket/base
-(provide lindenmayer-lexer)
-(require racket/match racket/list)
+(require racket/contract racket/match racket/list syntax-color/lexer-contract)
+(provide
+ (contract-out
+  [lindenmayer-lexer lexer/c]))
 (module+ test (require rackunit))
 
 (struct errstate (mode data) #:transparent)
@@ -153,7 +155,7 @@
   #;(printf "lexer:    ~a ~s\n" state (peek-string 20 0 port))
   (cond
     [(eof-object? (peek-char port))
-     (values (read-char port) 'eof #f 0 0 0 state)]
+     (values (read-char port) 'eof #f #f #f 0 state)]
     [(errstate? state)
      (define-values (lexeme type data new-token-start new-token-end backup-delta new-mode)
        (lindenmayer-lexer port offset
