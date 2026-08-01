@@ -9,14 +9,14 @@
            (only-in (submod "../main.rkt" reader) get-info)
            "../lexer.rkt")
 
-  ;; run random testing 5 times
-  (for ([i (in-range 5)])
+  ;; run random testing 8 times
+  (for ([i (in-range 8)])
     ;; `lexer/c`'s random testing would exercise the lexer
     (new color:text-mode%
          [get-token (wrap-lexer #f)]))
   ;; or get an instance of the lexer from `get-info`?
   ;; should be the same
-  (for ([i (in-range 5)])
+  (for ([i (in-range 8)])
     (call-with-input-file abop-25a.rkt
       (lambda (inp)
         (port-count-lines! inp)
