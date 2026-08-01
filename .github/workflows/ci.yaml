@@ -8,7 +8,7 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@master
-      - uses: Bogdanp/setup-racket@v1.9.1
+      - uses: Bogdanp/setup-racket@v1.15
         with:
           version: 'stable'
       - name: Install Lindenmayer
