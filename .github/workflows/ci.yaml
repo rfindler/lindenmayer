@@ -12,6 +12,6 @@ jobs:
         with:
           version: 'stable'
       - name: Install Lindenmayer
-        run: raco pkg install --auto lindenmayer
+        run: raco pkg install --auto
       - name: Test Lindenmayer
         run: xvfb-run -a raco test -p lindenmayer
